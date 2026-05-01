@@ -132,7 +132,48 @@ telemetry. No spinners, no sparkle icons, no purple gradients.
 
 ---
 
+## Sample inventory
+
+| ID                          | Category    | Scenario           | Surfaces             | Languages       |
+| --------------------------- | ----------- | ------------------ | -------------------- | --------------- |
+| `text.basic`                | text        | basic              | ai-studio · vertex   | python · typescript |
+| `text.streaming`            | text        | streaming          | ai-studio · vertex   | python          |
+| `text.chat`                 | text        | chat               | ai-studio · vertex   | python          |
+| `text.system-instruction`   | text        | system-instruction | ai-studio · vertex   | python          |
+| `text.structured-output`    | text        | structured-output  | ai-studio · vertex   | python          |
+| `text.thinking`             | text        | thinking           | ai-studio · vertex   | python          |
+| `text.tool-call`            | text        | function-calling   | ai-studio · vertex   | python          |
+| `text.context-cache`        | text        | context-cache      | ai-studio · vertex   | python          |
+| `text.multimodal-input`     | text        | multimodal-input   | ai-studio · vertex   | python          |
+| `live.text-roundtrip`       | live        | text-roundtrip     | ai-studio · vertex   | python          |
+| `image.nano-banana`         | image       | generation         | ai-studio · vertex   | python          |
+| `video.veo`                 | video       | generation         | ai-studio · vertex   | python          |
+| `embeddings.basic`          | embeddings  | basic              | ai-studio · vertex   | python          |
+
+Adding a sample is a matter of dropping a directory under `samples/`
+with a `manifest.json` and one or more code files. The registry walks
+the tree at startup; the UI picks it up on the next refresh.
+
+## Telemetry
+
+Every run emits a snapshot:
+
+- **Latency** — TTFT (time to first token) for streaming and Live
+  samples, total wall time for everything else.
+- **Tokens** — `prompt`, `cached`, `output`, `thinking`,
+  `tool_use_prompt`, total. Per-modality breakdowns (TEXT / AUDIO /
+  IMAGE / VIDEO) when the response carries them.
+- **Cache hit ratio** — `cached / prompt`. Used to validate explicit
+  and implicit cache wins.
+- **Cost** — USD and INR estimate. Cached tokens billed at 25% of the
+  input rate; thinking tokens at the output rate. Refresh the rate card
+  in `backend/app/metrics.py` against ai.google.dev/pricing quarterly.
+
+The last 100 runs sit in a ring buffer; `GET /api/metrics` returns
+`{summary, runs}` with p50/p95 across the window.
+
 ## Status
 
-Pre-alpha. Building the backend executor and the first text-generation
-sample now. Track progress in the commit log.
+v0.1. Thirteen samples spanning text, live, image, video, and
+embeddings. Future work tracked in the commit log; SDK shape revisited
+on every Gemini family bump.

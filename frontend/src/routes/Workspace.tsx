@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import Editor from '@monaco-editor/react'
+import Editor, { type Monaco } from '@monaco-editor/react'
 import { Check, Copy, ExternalLink, RotateCcw } from 'lucide-react'
 import { useAuth, type Surface } from '../state/auth'
 import { useSamples } from '../state/samples'
@@ -344,6 +344,72 @@ function MetricCell({
   )
 }
 
+// Monaco doesn't read CSS variables; define matching themes once so the editor
+// surface tracks the surrounding panel instead of falling into a vs-dark pit.
+let monacoThemesDefined = false
+function defineMonacoThemes(monaco: Monaco) {
+  if (monacoThemesDefined) return
+  monacoThemesDefined = true
+
+  monaco.editor.defineTheme('gemini-bible-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: '', foreground: 'F5F5F5' },
+      { token: 'comment', foreground: '8A8294', fontStyle: 'italic' },
+      { token: 'string', foreground: 'D4C58E' },
+      { token: 'string.escape', foreground: 'D4C58E' },
+      { token: 'number', foreground: 'D4C58E' },
+      { token: 'keyword', foreground: 'C7B6E0' },
+      { token: 'keyword.flow', foreground: 'C7B6E0' },
+      { token: 'type', foreground: '9DC3D8' },
+      { token: 'type.identifier', foreground: '9DC3D8' },
+      { token: 'identifier', foreground: 'EAEAEA' },
+      { token: 'delimiter', foreground: 'A8A5B0' },
+      { token: 'tag', foreground: 'C7B6E0' },
+    ],
+    colors: {
+      'editor.background': '#26252B',
+      'editor.foreground': '#F5F5F5',
+      'editorLineNumber.foreground': '#5C5867',
+      'editorLineNumber.activeForeground': '#A8A5B0',
+      'editor.selectionBackground': '#D2B477AA',
+      'editor.inactiveSelectionBackground': '#D2B47755',
+      'editor.lineHighlightBackground': '#00000000',
+      'editorCursor.foreground': '#D2B477',
+      'editorIndentGuide.background1': '#3A3744',
+      'editorIndentGuide.activeBackground1': '#5C5867',
+      'editorWidget.background': '#2D2A33',
+      'editorWidget.border': '#4A4654',
+      'scrollbarSlider.background': '#5C586733',
+      'scrollbarSlider.hoverBackground': '#5C586766',
+      'scrollbarSlider.activeBackground': '#5C586799',
+    },
+  })
+
+  monaco.editor.defineTheme('gemini-bible-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: '', foreground: '1F1D26' },
+      { token: 'comment', foreground: '8A8294', fontStyle: 'italic' },
+      { token: 'string', foreground: '7A5A18' },
+      { token: 'number', foreground: '7A5A18' },
+      { token: 'keyword', foreground: '5E4290' },
+      { token: 'type', foreground: '2F6280' },
+    ],
+    colors: {
+      'editor.background': '#F4F2EE',
+      'editor.foreground': '#1F1D26',
+      'editorLineNumber.foreground': '#A8A5B0',
+      'editorLineNumber.activeForeground': '#52505A',
+      'editor.selectionBackground': '#C29A4744',
+      'editor.lineHighlightBackground': '#00000000',
+      'editorCursor.foreground': '#9C7325',
+    },
+  })
+}
+
 type CodePanelProps = {
   code: string
   path: string | null
@@ -428,10 +494,11 @@ function CodePanel({ code, path, language, edited, onChange, onReset }: CodePane
           value={code}
           language={monacoLangByLanguage[language]}
           onChange={(v) => onChange(v ?? '')}
-          theme={theme === 'dark' ? 'vs-dark' : 'vs'}
+          beforeMount={defineMonacoThemes}
+          theme={theme === 'dark' ? 'gemini-bible-dark' : 'gemini-bible-light'}
           options={{
             fontSize: 12.5,
-            fontFamily: 'var(--font-mono), ui-monospace, monospace',
+            fontFamily: '"Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace',
             fontLigatures: true,
             lineNumbers: 'on',
             renderLineHighlight: 'none',

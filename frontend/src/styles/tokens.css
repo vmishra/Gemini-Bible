@@ -26,26 +26,29 @@
 }
 
 :root[data-theme="dark"] {
-  --surface: oklch(14% 0.010 260);
-  --surface-raised: oklch(17% 0.012 260);
-  --elev-1: oklch(19% 0.012 260);
-  --elev-2: oklch(23% 0.014 260);
-  --border: oklch(28% 0.012 260);
-  --border-strong: oklch(36% 0.014 260);
-  --text: oklch(96% 0 0);
-  --text-muted: oklch(68% 0.010 260);
-  --text-subtle: oklch(52% 0.010 260);
-  --accent: oklch(80% 0.130 85);
-  --accent-soft: oklch(80% 0.130 85 / 0.14);
-  --accent-hairline: oklch(80% 0.130 85 / 0.55);
-  --trace: oklch(72% 0.075 200);
-  --trace-soft: oklch(72% 0.075 200 / 0.14);
-  --danger: oklch(68% 0.150 25);
-  --success: oklch(72% 0.110 160);
+  /* Tuned a few stops brighter than the contract baseline so the actual
+     working surface stays scannable — kickers and panel hairlines were
+     vanishing into the page. Hue and chroma unchanged. */
+  --surface: oklch(17% 0.012 260);
+  --surface-raised: oklch(20% 0.013 260);
+  --elev-1: oklch(23% 0.014 260);
+  --elev-2: oklch(28% 0.015 260);
+  --border: oklch(36% 0.015 260);
+  --border-strong: oklch(48% 0.016 260);
+  --text: oklch(97% 0 0);
+  --text-muted: oklch(78% 0.012 260);
+  --text-subtle: oklch(64% 0.012 260);
+  --accent: oklch(82% 0.135 85);
+  --accent-soft: oklch(82% 0.135 85 / 0.18);
+  --accent-hairline: oklch(82% 0.135 85 / 0.65);
+  --trace: oklch(76% 0.080 200);
+  --trace-soft: oklch(76% 0.080 200 / 0.18);
+  --danger: oklch(72% 0.155 25);
+  --success: oklch(76% 0.115 160);
 
-  --shadow-1: 0 1px 0 oklch(100% 0 0 / 0.04) inset, 0 1px 2px oklch(0 0 0 / 0.4);
-  --shadow-2: 0 1px 0 oklch(100% 0 0 / 0.06) inset, 0 6px 24px -8px oklch(0 0 0 / 0.6);
-  --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.08) inset, 0 18px 48px -16px oklch(0 0 0 / 0.7);
+  --shadow-1: 0 1px 0 oklch(100% 0 0 / 0.05) inset, 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-2: 0 1px 0 oklch(100% 0 0 / 0.07) inset, 0 6px 24px -8px oklch(0 0 0 / 0.55);
+  --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.09) inset, 0 18px 48px -16px oklch(0 0 0 / 0.65);
 }
 
 :root[data-theme="light"] {

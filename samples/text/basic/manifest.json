@@ -1,0 +1,59 @@
+{
+  "id": "text.basic",
+  "category": "text",
+  "scenario": "basic",
+  "title": "Basic text generation",
+  "summary": "One-shot prompt to a Gemini text model. The minimum viable call against either surface.",
+  "models": [
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-lite"
+  ],
+  "default_model": "gemini-2.5-flash",
+  "variants": [
+    {
+      "surface": "ai-studio",
+      "language": "python",
+      "file": "python/ai_studio.py",
+      "entry": "main"
+    },
+    {
+      "surface": "vertex",
+      "language": "python",
+      "file": "python/vertex.py",
+      "entry": "main"
+    },
+    {
+      "surface": "ai-studio",
+      "language": "typescript",
+      "file": "typescript/ai-studio.ts",
+      "entry": "main"
+    }
+  ],
+  "docs": [
+    {
+      "label": "Generate text — Gemini API",
+      "url": "https://ai.google.dev/gemini-api/docs/text-generation"
+    },
+    {
+      "label": "Generate text — Vertex AI",
+      "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference"
+    }
+  ],
+  "pricing": [
+    {
+      "label": "Gemini API pricing",
+      "url": "https://ai.google.dev/pricing"
+    },
+    {
+      "label": "Vertex AI pricing",
+      "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing"
+    }
+  ],
+  "notes": [
+    "The unified `google-genai` SDK speaks both surfaces; only the client constructor changes.",
+    "AI Studio reads the key from `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).",
+    "Vertex requires Application Default Credentials and an explicit project + region."
+  ]
+}

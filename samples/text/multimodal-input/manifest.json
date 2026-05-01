@@ -1,0 +1,32 @@
+{
+  "id": "text.multimodal-input",
+  "category": "text",
+  "scenario": "multimodal-input",
+  "title": "Multimodal input (image)",
+  "summary": "Send an image alongside text and ask the model to describe, classify, or extract from it. Inline bytes for small images; the Files API for anything reusable.",
+  "models": [
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "default_model": "gemini-3-flash-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Image understanding — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/image-understanding" },
+    { "label": "Multimodal input — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/send-multimodal-prompts" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "Inline data is capped — keep request bodies under ~20 MB. Use client.files.upload for anything larger or reused.",
+    "Image tokens appear in the IMAGE row of usage_metadata.prompt_tokens_details.",
+    "On Vertex you can also reference a GCS URI via types.Part.from_uri('gs://…', mime_type='image/jpeg')."
+  ]
+}

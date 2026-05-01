@@ -1,0 +1,29 @@
+{
+  "id": "embeddings.basic",
+  "category": "embeddings",
+  "scenario": "basic",
+  "title": "Embeddings",
+  "summary": "Compute a dense vector for a text snippet. Configurable output_dimensionality lets you trade vector size against retrieval quality.",
+  "models": [
+    "gemini-embedding-2",
+    "gemini-embedding-001"
+  ],
+  "default_model": "gemini-embedding-2",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Embeddings — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/embeddings" },
+    { "label": "Text embeddings — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "output_dimensionality typically supports 768 / 1536 / 3072. Smaller is cheaper to store and faster to compare; larger preserves more discrimination.",
+    "task_type (RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, SEMANTIC_SIMILARITY, …) is supported on gemini-embedding-001. On gemini-embedding-2, fold the task into the prompt text instead.",
+    "Batch by passing a list to contents — one HTTP round-trip, vectors returned in the same order."
+  ]
+}

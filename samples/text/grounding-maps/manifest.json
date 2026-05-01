@@ -1,0 +1,32 @@
+{
+  "id": "text.grounding-maps",
+  "category": "text",
+  "scenario": "grounding-maps",
+  "title": "Grounding with Google Maps",
+  "summary": "Attach Google Maps as a tool with an optional caller location. The model returns place results — title, URI, place ID — through grounding_metadata.",
+  "models": [
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "default_model": "gemini-3-flash-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Maps grounding — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/maps-grounding" },
+    { "label": "Grounding — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/grounding/overview" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "lat_lng on RetrievalConfig is optional — without it the tool still answers, but 'near me' style prompts work much better when it's set.",
+    "Each grounding_chunk carries a maps object with title, uri, and placeId — placeId is the stable Google Places identifier you should persist if you plan to look up further details client-side.",
+    "Maps grounding bills as a per-request fee on top of token usage; refer to the pricing page for the current rate."
+  ]
+}

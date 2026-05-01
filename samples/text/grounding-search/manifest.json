@@ -1,0 +1,32 @@
+{
+  "id": "text.grounding-search",
+  "category": "text",
+  "scenario": "grounding-search",
+  "title": "Grounding with Google Search",
+  "summary": "Attach Google Search as a tool. The model issues web queries when a prompt needs fresh facts and returns sources you can cite via grounding_metadata.",
+  "models": [
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "default_model": "gemini-3-flash-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Grounding with Google Search — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/google-search" },
+    { "label": "Grounding — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/grounding/overview" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "Search-grounded responses bill the underlying token cost plus a per-request grounding fee — refer to the pricing page.",
+    "grounding_metadata.web_search_queries lists the exact queries the model issued; grounding_chunks gives the URI + title for each source; grounding_supports maps response text segments back to source indices for citation.",
+    "Search grounding cannot be combined with arbitrary user-defined function tools in the same call — pick one or the other per request."
+  ]
+}

@@ -2,16 +2,14 @@
 
 Surface: AI Studio (api-key authenticated).
 SDK:     google-genai (unified Python SDK).
-Auth:    GEMINI_API_KEY in the environment.
+Auth:    GEMINI_API_KEY in the environment — picked up by Client() automatically.
 """
-
-import os
 
 from google import genai
 
 
-def main(model: str = "gemini-2.5-flash", prompt: str | None = None) -> dict:
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
+    client = genai.Client()
 
     response = client.models.generate_content(
         model=model,

@@ -13,7 +13,7 @@ import os
 from google import genai
 
 
-def main(model: str = "gemini-2.5-flash", prompt: str | None = None) -> dict:
+def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
     client = genai.Client(
         vertexai=True,
         project=os.environ["GOOGLE_CLOUD_PROJECT"],

@@ -9,12 +9,13 @@
 import { GoogleGenAI } from '@google/genai'
 
 export async function main(opts: { model?: string; prompt?: string } = {}) {
-  const model = opts.model ?? 'gemini-2.5-flash'
+  const model = opts.model ?? 'gemini-3-flash-preview'
   const prompt =
     opts.prompt ??
     'Explain transformers to a senior backend engineer in three sentences.'
 
-  const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+  // GoogleGenAI({}) reads GEMINI_API_KEY from process.env automatically.
+  const client = new GoogleGenAI({})
 
   const response = await client.models.generateContent({
     model,

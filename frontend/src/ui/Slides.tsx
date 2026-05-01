@@ -1,12 +1,27 @@
 import {
+  createContext,
   type ReactNode,
+  type RefObject,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
 } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { cn } from './cn'
+
+// The slide deck owns its own scroll container — `overflow-y-auto` on a flex
+// child of <main>, not the document. Inner motion components (whileInView,
+// useInView) need to observe THAT container, not the document viewport, or
+// IntersectionObserver triggers fire all at once on mount instead of as the
+// reader scrolls into each slide. We expose the container ref through context
+// so any descendant can use it as the IntersectionObserver root.
+const ScrollContainerContext = createContext<RefObject<HTMLElement> | null>(null)
+
+export function useSlideScrollRoot(): RefObject<HTMLElement> | null {
+  return useContext(ScrollContainerContext)
+}
 
 /**
  * Slide deck UX — turns a long scroll page into a paged, keyboard-navigated
@@ -133,26 +148,28 @@ export function SlideShell({ children }: { children: ReactNode }) {
   }, [activeIndex, slides.length, goTo])
 
   return (
-    <div className="relative flex flex-1 overflow-hidden">
-      <div
-        ref={ref}
-        className="relative flex-1 overflow-y-auto"
-        style={{
-          scrollBehavior: 'smooth',
-          scrollSnapType: 'y proximity',
-        }}
-      >
-        {children}
-      </div>
+    <ScrollContainerContext.Provider value={ref as RefObject<HTMLElement>}>
+      <div className="relative flex flex-1 overflow-hidden">
+        <div
+          ref={ref}
+          className="relative flex-1 overflow-y-auto"
+          style={{
+            scrollBehavior: 'smooth',
+            scrollSnapType: 'y proximity',
+          }}
+        >
+          {children}
+        </div>
 
-      {slides.length > 0 && (
-        <>
-          <SlideRail slides={slides} activeIndex={activeIndex} onJump={goTo} />
-          <SlideCounter index={activeIndex} total={slides.length} />
-          <SlideHint visible={!hasNavigated && slides.length > 1} />
-        </>
-      )}
-    </div>
+        {slides.length > 0 && (
+          <>
+            <SlideRail slides={slides} activeIndex={activeIndex} onJump={goTo} />
+            <SlideCounter index={activeIndex} total={slides.length} />
+            <SlideHint visible={!hasNavigated && slides.length > 1} />
+          </>
+        )}
+      </div>
+    </ScrollContainerContext.Provider>
   )
 }
 
@@ -170,6 +187,7 @@ export function Slide({
   className?: string
 }) {
   const prefersReducedMotion = useReducedMotion()
+  const root = useSlideScrollRoot()
   return (
     <section
       data-slide
@@ -186,12 +204,17 @@ export function Slide({
         children
       ) : (
         <motion.div
-          // Each slide fades up as it enters the viewport. Plays once per
-          // mount so back-and-forth nav doesn't keep retriggering.
-          initial={{ opacity: 0, y: 18 }}
+          // Each slide fades up + slides in as it enters the deck's scroll
+          // container (NOT the document viewport — see ScrollContainerContext).
+          // Plays once per mount so back-and-forth nav doesn't retrigger.
+          initial={{ opacity: 0, y: 28 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.25 }}
-          transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }}
+          viewport={{
+            once: true,
+            amount: 0.2,
+            root: (root ?? undefined) as React.RefObject<Element> | undefined,
+          }}
+          transition={{ duration: 0.6, ease: [0.2, 0.7, 0.2, 1] }}
         >
           {children}
         </motion.div>

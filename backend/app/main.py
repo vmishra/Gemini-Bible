@@ -1,11 +1,19 @@
-"""Gemini Bible backend — sample registry + executor."""
+"""Gemini Bible backend — auth probe, sample registry, executor."""
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from .auth import detect
+from .registry import load_all
+from .runner import RunRequest, run
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SAMPLES_DIR = REPO_ROOT / "samples"
 
 app = FastAPI(title="Gemini Bible", version="0.1.0")
 
@@ -15,6 +23,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+SAMPLES = load_all(SAMPLES_DIR)
 
 
 @app.get("/api/health")
@@ -38,3 +48,54 @@ def auth() -> dict[str, object]:
         },
         "surfaces": state.available_surfaces,
     }
+
+
+@app.get("/api/samples")
+def list_samples() -> dict[str, list[dict]]:
+    return {"samples": [s.to_dict() for s in SAMPLES.values()]}
+
+
+@app.get("/api/samples/{sample_id}")
+def get_sample(sample_id: str) -> dict:
+    sample = SAMPLES.get(sample_id)
+    if sample is None:
+        raise HTTPException(404, f"sample {sample_id!r} not found")
+    body = sample.to_dict()
+    sources = {}
+    for v in sample.variants:
+        sources[f"{v.surface}:{v.language}"] = (sample.root / v.file).read_text()
+    body["sources"] = sources
+    return body
+
+
+class RunBody(BaseModel):
+    surface: str
+    language: str
+    model: str | None = None
+    prompt: str | None = None
+    code_override: str | None = None
+
+
+@app.post("/api/samples/{sample_id}/run")
+def run_sample(sample_id: str, body: RunBody) -> dict:
+    sample = SAMPLES.get(sample_id)
+    if sample is None:
+        raise HTTPException(404, f"sample {sample_id!r} not found")
+    variant = sample.variant(body.surface, body.language)  # type: ignore[arg-type]
+    if variant is None:
+        raise HTTPException(
+            404, f"sample {sample_id!r} has no {body.language} variant for {body.surface}"
+        )
+
+    result = run(
+        sample,
+        variant,
+        RunRequest(
+            surface=body.surface,
+            language=body.language,
+            model=body.model,
+            prompt=body.prompt,
+            code_override=body.code_override,
+        ),
+    )
+    return result.__dict__

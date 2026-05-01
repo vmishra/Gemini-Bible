@@ -1,4 +1,4 @@
-"""Gemini Bible backend — auth probe, sample registry, executor."""
+"""Gemini Bible backend — auth probe, sample registry, executor, telemetry."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .auth import detect
+from .metrics import MetricsStore
 from .registry import load_all
 from .runner import RunRequest, run
 
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 SAMPLES = load_all(SAMPLES_DIR)
+METRICS = MetricsStore(window=100)
 
 
 @app.get("/api/health")
@@ -61,10 +63,10 @@ def get_sample(sample_id: str) -> dict:
     if sample is None:
         raise HTTPException(404, f"sample {sample_id!r} not found")
     body = sample.to_dict()
-    sources = {}
-    for v in sample.variants:
-        sources[f"{v.surface}:{v.language}"] = (sample.root / v.file).read_text()
-    body["sources"] = sources
+    body["sources"] = {
+        f"{v.surface}:{v.language}": (sample.root / v.file).read_text()
+        for v in sample.variants
+    }
     return body
 
 
@@ -98,4 +100,19 @@ def run_sample(sample_id: str, body: RunBody) -> dict:
             code_override=body.code_override,
         ),
     )
+
+    if result.metrics:
+        METRICS.record({**result.metrics, "sample_id": sample_id, "surface": body.surface})
+
     return result.__dict__
+
+
+@app.get("/api/metrics")
+def metrics() -> dict:
+    return METRICS.snapshot()
+
+
+@app.post("/api/metrics/reset")
+def metrics_reset() -> dict:
+    METRICS.reset()
+    return {"reset": True}

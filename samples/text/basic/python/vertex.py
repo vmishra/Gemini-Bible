@@ -29,17 +29,20 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
     return {
         "text": response.text,
         "model": model,
-        "usage": {
-            "prompt_tokens": getattr(usage, "prompt_token_count", None),
-            "output_tokens": getattr(usage, "candidates_token_count", None),
-            "thinking_tokens": getattr(usage, "thoughts_token_count", None),
-            "cached_tokens": getattr(usage, "cached_content_token_count", None),
-            "total_tokens": getattr(usage, "total_token_count", None),
-        },
+        "finish_reason": _finish_reason(response),
+        "usage_metadata": usage.model_dump(mode="json") if usage else None,
     }
+
+
+def _finish_reason(response) -> str | None:
+    candidates = getattr(response, "candidates", None) or []
+    if not candidates:
+        return None
+    fr = getattr(candidates[0], "finish_reason", None)
+    return getattr(fr, "name", str(fr)) if fr else None
 
 
 if __name__ == "__main__":
     import json
 
-    print(json.dumps(main(), indent=2))
+    print(json.dumps(main(), indent=2, default=str))

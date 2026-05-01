@@ -1,6 +1,6 @@
-"""Sample executor. Spawns a Python subprocess for isolation; captures stdout JSON,
-stderr, latency, and forwards usage metadata for cost estimation.
-"""
+"""Sample executor. Spawns a Python subprocess for isolation, captures the
+sample's JSON output (text + usage_metadata + optional ttft), and folds the
+result into a TurnMetrics snapshot."""
 
 from __future__ import annotations
 
@@ -10,12 +10,11 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .metrics import TurnMetrics
 from .registry import Sample, Variant
-from .pricing import estimate_cost_usd
 
 DEFAULT_TIMEOUT_S = 120
 
@@ -37,14 +36,13 @@ class RunResult:
     stderr: str
     parsed: dict | None
     exit_code: int
-    latency_ms: float
-    cost: dict | None
+    metrics: dict | None
 
 
 def _python_launcher(sample_file: Path, model: str | None, prompt: str | None) -> str:
     return textwrap.dedent(
         f"""
-        import importlib.util, json, sys, time
+        import importlib.util, json, sys
         spec = importlib.util.spec_from_file_location("sample", {str(sample_file)!r})
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -53,9 +51,7 @@ def _python_launcher(sample_file: Path, model: str | None, prompt: str | None) -
             kwargs["model"] = {model!r}
         if {prompt!r} is not None:
             kwargs["prompt"] = {prompt!r}
-        t0 = time.perf_counter()
         result = mod.main(**kwargs)
-        result["__latency_ms"] = round((time.perf_counter() - t0) * 1000, 2)
         sys.stdout.write(json.dumps(result, default=str))
         """
     ).strip()
@@ -68,6 +64,7 @@ def run(sample: Sample, variant: Variant, req: RunRequest) -> RunResult:
         )
 
     sample_path = sample.root / variant.file
+    metrics = TurnMetrics(model=req.model or sample.default_model)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -84,7 +81,6 @@ def run(sample: Sample, variant: Variant, req: RunRequest) -> RunResult:
         if variant.surface == "vertex":
             env.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "true")
 
-        t0 = time.perf_counter()
         try:
             proc = subprocess.run(
                 [sys.executable, str(launcher)],
@@ -94,16 +90,15 @@ def run(sample: Sample, variant: Variant, req: RunRequest) -> RunResult:
                 env=env,
             )
         except subprocess.TimeoutExpired as exc:
+            metrics.finish(error=f"timed out after {req.timeout_s}s")
             return RunResult(
                 ok=False,
                 stdout=exc.stdout or "",
                 stderr=(exc.stderr or "") + f"\n[timed out after {req.timeout_s}s]",
                 parsed=None,
                 exit_code=-1,
-                latency_ms=(time.perf_counter() - t0) * 1000,
-                cost=None,
+                metrics=metrics.as_dict(),
             )
-        latency_ms = (time.perf_counter() - t0) * 1000
 
     parsed: dict | None = None
     if proc.returncode == 0 and proc.stdout.strip():
@@ -112,16 +107,24 @@ def run(sample: Sample, variant: Variant, req: RunRequest) -> RunResult:
         except json.JSONDecodeError:
             parsed = None
 
-    cost = None
-    if parsed and "usage" in parsed:
-        usage = parsed["usage"]
-        cost = estimate_cost_usd(
-            parsed.get("model", req.model or sample.default_model),
-            prompt_tokens=usage.get("prompt_tokens") or 0,
-            output_tokens=usage.get("output_tokens") or 0,
-            cached_tokens=usage.get("cached_tokens") or 0,
-            thinking_tokens=usage.get("thinking_tokens") or 0,
-        )
+    if parsed is not None:
+        # Streaming samples may report their own first-token timestamp.
+        ttft_ms = parsed.get("__ttft_ms")
+        if isinstance(ttft_ms, (int, float)):
+            metrics.first_token_at = metrics.started_at + ttft_ms / 1000.0
+        usage_md = parsed.get("usage_metadata") or parsed.get("usage")
+        if usage_md:
+            metrics.record_usage(usage_md)
+        if "model" in parsed:
+            metrics.model = parsed["model"]
+        if parsed.get("tool_calls"):
+            for _ in range(int(parsed["tool_calls"])):
+                metrics.record_tool_call()
+        finish_reason = parsed.get("finish_reason")
+        if finish_reason:
+            metrics.finish_reason = str(finish_reason)
+
+    metrics.finish(error=None if proc.returncode == 0 else proc.stderr.strip()[:500] or None)
 
     return RunResult(
         ok=proc.returncode == 0,
@@ -129,6 +132,5 @@ def run(sample: Sample, variant: Variant, req: RunRequest) -> RunResult:
         stderr=proc.stderr,
         parsed=parsed,
         exit_code=proc.returncode,
-        latency_ms=latency_ms,
-        cost=cost,
+        metrics=metrics.as_dict(),
     )

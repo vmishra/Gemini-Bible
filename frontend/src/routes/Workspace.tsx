@@ -261,9 +261,20 @@ function ModelCard({
             <PriceCell label="output" value={rate?.output_per_mtok_usd} />
             <PriceCell label="cached input" value={rate?.cached_input_per_mtok_usd} />
           </div>
-          {!rate && (
+          {rate?.asset_note && (
+            <span className="text-[12px] text-[var(--text-muted)]">{rate.asset_note}</span>
+          )}
+          {!rate && pricingStatus === 'ready' && (
             <span className="text-[12px] text-[var(--text-subtle)]">
-              no rate-card entry — verify against ai.google.dev/pricing
+              no entry for {model} — add it to backend/app/metrics.py or verify ai.google.dev/pricing
+            </span>
+          )}
+          {!rate && pricingStatus === 'loading' && (
+            <span className="text-[12px] text-[var(--text-subtle)]">loading rate card…</span>
+          )}
+          {!rate && pricingStatus === 'error' && (
+            <span className="text-[12px] text-[var(--danger)]">
+              pricing service unreachable — restart the backend with ./app.sh restart
             </span>
           )}
         </section>

@@ -44,6 +44,7 @@ from typing import Any, Deque
 # against ai.google.dev/pricing and cloud.google.com/vertex-ai/generative-ai/pricing
 # at least quarterly.
 _PRICES: dict[str, tuple[float, float]] = {
+    # Token-billed text + multimodal models.
     "gemini-3.1-pro-preview": (1.25, 5.00),
     "gemini-3-pro-preview": (1.25, 5.00),
     "gemini-3-flash-preview": (0.075, 0.30),
@@ -57,7 +58,28 @@ _PRICES: dict[str, tuple[float, float]] = {
     "gemini-2.5-computer-use-preview-10-2025": (1.25, 10.00),
     "gemini-embedding-2": (0.025, 0.0),
     "gemini-embedding-001": (0.025, 0.0),
+    # Asset-billed image and video models. The (input, output) tuple here
+    # covers only the *text-prompt* token cost; the bulk of the bill is
+    # the per-asset fee surfaced separately via _ASSET_NOTES below.
+    "gemini-3-pro-image-preview": (1.25, 0.0),
+    "gemini-3.1-flash-image-preview": (0.30, 0.0),
+    "gemini-2.5-flash-image": (0.30, 0.0),
+    "imagen-4": (0.0, 0.0),
+    "veo-3.1-generate-preview": (0.30, 0.0),
+    "veo-3.1-lite-generate-preview": (0.075, 0.0),
 }
+
+# Per-asset fees that the per-MTok rate card cannot express. Estimates;
+# always verify against the live pricing page before quoting customers.
+_ASSET_NOTES: dict[str, str] = {
+    "gemini-3-pro-image-preview": "+ ~$0.12 per generated image (up to 4K)",
+    "gemini-3.1-flash-image-preview": "+ ~$0.039 per generated image (1024 px)",
+    "gemini-2.5-flash-image": "+ ~$0.039 per generated image (1024 px)",
+    "imagen-4": "+ ~$0.04 per generated image",
+    "veo-3.1-generate-preview": "+ ~$0.40 per second of generated video",
+    "veo-3.1-lite-generate-preview": "+ ~$0.15 per second of generated video",
+}
+
 _USD_TO_INR = 84.0
 _CACHE_DISCOUNT = 0.25  # cached prompt tokens billed at ~25% of input rate
 

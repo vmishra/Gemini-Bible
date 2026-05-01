@@ -4,6 +4,7 @@ export type ModelRate = {
   input_per_mtok_usd: number
   output_per_mtok_usd: number
   cached_input_per_mtok_usd: number
+  asset_note?: string | null
 }
 
 export type PricingSnapshot = {

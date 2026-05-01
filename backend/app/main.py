@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .auth import detect
-from .metrics import MetricsStore, _CACHE_DISCOUNT, _PRICES, _USD_TO_INR
+from .metrics import MetricsStore, _ASSET_NOTES, _CACHE_DISCOUNT, _PRICES, _USD_TO_INR
 from .registry import load_all
 from .runner import RunRequest, run
 
@@ -126,6 +126,7 @@ def pricing() -> dict:
             "input_per_mtok_usd": rate[0],
             "output_per_mtok_usd": rate[1],
             "cached_input_per_mtok_usd": round(rate[0] * _CACHE_DISCOUNT, 6),
+            "asset_note": _ASSET_NOTES.get(model),
         }
         for model, rate in _PRICES.items()
     }

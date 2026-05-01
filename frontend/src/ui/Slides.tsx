@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { useReducedMotion } from 'motion/react'
 import { cn } from './cn'
 
 // The slide deck owns its own scroll container — `overflow-y-auto` on a flex
@@ -234,9 +234,14 @@ export function Slide({
   const sectionRef = useRef<HTMLElement>(null)
   const inView = useInScrollRoot(sectionRef, { once: true, amount: 0.18 })
 
-  // Even with prefers-reduced-motion enabled, a quick opacity fade (no
-  // movement) is acceptable per WCAG. Hard movement is gated.
+  // CSS transitions, not motion/react — proven-reliable, no library magic.
+  // The `inView` boolean from useInScrollRoot toggles, the styles change,
+  // the browser interpolates. If you don't see animation, inView isn't
+  // changing for this section — but we've already proven the IO works
+  // because the slide-rail dot tracker uses the same root.
   const yDistance = reduced ? 0 : 56
+  const easing = 'cubic-bezier(0.2, 0.7, 0.2, 1)'
+  const dur = reduced ? '0.3s' : '0.7s'
 
   return (
     <section
@@ -251,30 +256,30 @@ export function Slide({
       )}
       style={{ scrollSnapAlign: 'start' }}
     >
-      {/* Sweeping accent hairline along the top of the slide — fires once when
-          the slide enters. Unmissable confirmation that motion is alive. */}
+      {/* Accent hairline — sweeps in left-to-right when slide enters. Suppressed
+          under reduce-motion. Top edge of the slide. */}
       {!reduced && (
-        <motion.div
+        <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[2px] origin-left"
-          style={{ background: 'var(--accent)' }}
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={inView ? { scaleX: 1, opacity: 0.8 } : { scaleX: 0, opacity: 0 }}
-          transition={{
-            scaleX: { duration: 0.7, ease: [0.2, 0.7, 0.2, 1] },
-            opacity: { duration: 0.3 },
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+          style={{
+            background: 'var(--accent)',
+            transformOrigin: 'left',
+            transform: inView ? 'scaleX(1)' : 'scaleX(0)',
+            opacity: inView ? 0.85 : 0,
+            transition: `transform 0.7s ${easing}, opacity 0.3s ease-out`,
           }}
         />
       )}
-      <motion.div
-        // Slide entrance — fades up + slides in when the section intersects
-        // the deck's scroll container.
-        initial={{ opacity: 0, y: yDistance }}
-        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: yDistance }}
-        transition={{ duration: 0.7, ease: [0.2, 0.7, 0.2, 1] }}
+      <div
+        style={{
+          opacity: inView ? 1 : 0,
+          transform: inView ? 'translateY(0)' : `translateY(${yDistance}px)`,
+          transition: `opacity ${dur} ${easing} 0.05s, transform ${dur} ${easing} 0.05s`,
+        }}
       >
         {children}
-      </motion.div>
+      </div>
     </section>
   )
 }

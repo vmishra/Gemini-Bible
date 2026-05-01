@@ -4,12 +4,15 @@ import {
   CAPABILITY_COLUMNS,
   DECISIONS,
   FAMILIES,
+  HOME_SECTION_ORDER,
+  SUPERGROUPS,
   TIER_LABEL,
   TIER_ORDER,
   findModelEntry,
   type ModelEntry,
   type ModelFamily,
   type ModelTier,
+  type Supergroup,
 } from '../data/catalog'
 import { useSamples, type Sample } from '../state/samples'
 import { useRoute } from '../state/route'
@@ -63,9 +66,7 @@ export function Home() {
       <div className="flex flex-col gap-12 px-10 py-10">
         <DecisionPanel samples={samples} />
 
-        {FAMILIES.map((family) => (
-          <FamilyBlock key={family.id} family={family} samplesByModel={samplesByModel} />
-        ))}
+        {renderSections(samplesByModel)}
 
         <CapabilityMatrix />
 
@@ -96,12 +97,102 @@ export function Home() {
   )
 }
 
+function renderSections(samplesByModel: Map<string, Sample[]>) {
+  const supergroupById = new Map(SUPERGROUPS.map((sg) => [sg.id, sg]))
+  const familyById = new Map(FAMILIES.map((f) => [f.id, f]))
+  const familiesInSupergroup = new Set(SUPERGROUPS.flatMap((sg) => sg.family_ids))
+
+  const order =
+    HOME_SECTION_ORDER.length > 0
+      ? HOME_SECTION_ORDER
+      : [
+          ...SUPERGROUPS.map((sg) => sg.id),
+          ...FAMILIES.filter((f) => !familiesInSupergroup.has(f.id)).map((f) => f.id),
+        ]
+
+  const nodes: React.ReactNode[] = []
+  for (const id of order) {
+    const sg = supergroupById.get(id)
+    if (sg) {
+      nodes.push(
+        <SupergroupBlock key={`sg:${sg.id}`} group={sg} samplesByModel={samplesByModel} />,
+      )
+      continue
+    }
+    const family = familyById.get(id)
+    if (family && !familiesInSupergroup.has(family.id)) {
+      nodes.push(
+        <FamilyBlock key={`fam:${family.id}`} family={family} samplesByModel={samplesByModel} />,
+      )
+    }
+  }
+  // Fallback: render any family not listed in HOME_SECTION_ORDER and not in a supergroup.
+  const handled = new Set(order)
+  for (const f of FAMILIES) {
+    if (!handled.has(f.id) && !familiesInSupergroup.has(f.id)) {
+      nodes.push(
+        <FamilyBlock key={`fam:${f.id}`} family={f} samplesByModel={samplesByModel} />,
+      )
+    }
+  }
+  return nodes
+}
+
+function SupergroupBlock({
+  group,
+  samplesByModel,
+}: {
+  group: Supergroup
+  samplesByModel: Map<string, Sample[]>
+}) {
+  const families = useMemo(() => {
+    const byId = new Map(FAMILIES.map((f) => [f.id, f]))
+    return group.family_ids.map((fid) => byId.get(fid)).filter((f): f is ModelFamily => !!f)
+  }, [group.family_ids])
+
+  return (
+    <section className="flex flex-col gap-8">
+      <header className="flex flex-col gap-2 border-b border-[var(--accent-hairline)] pb-5">
+        <div className="flex items-baseline gap-3">
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--accent)]"
+            style={{ letterSpacing: '0.36em' }}
+          >
+            {group.kicker}
+          </span>
+          <span className="numeric font-mono text-[10.5px] text-[var(--text-subtle)]">
+            {families.reduce((n, f) => n + f.models.length, 0)}
+          </span>
+        </div>
+        <h2 className="font-display text-[32px] leading-[1.05]" style={{ fontWeight: 500 }}>
+          {group.label}
+        </h2>
+        <p className="max-w-3xl text-[14.5px] leading-relaxed text-[var(--text-muted)]">
+          {group.blurb}
+        </p>
+      </header>
+      <div className="flex flex-col gap-10 pl-1">
+        {families.map((family) => (
+          <FamilyBlock
+            key={family.id}
+            family={family}
+            samplesByModel={samplesByModel}
+            inSupergroup
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function FamilyBlock({
   family,
   samplesByModel,
+  inSupergroup,
 }: {
   family: ModelFamily
   samplesByModel: Map<string, Sample[]>
+  inSupergroup?: boolean
 }) {
   const sortedModels = useMemo(() => {
     const order = (m: ModelEntry) => TIER_ORDER.indexOf(m.tier)
@@ -122,7 +213,15 @@ function FamilyBlock({
             {family.models.length}
           </span>
         </div>
-        <h2 className="text-[26px] font-medium leading-tight tracking-tight">{family.label}</h2>
+        <h2
+          className={
+            inSupergroup
+              ? 'text-[20px] font-medium leading-tight tracking-tight'
+              : 'text-[26px] font-medium leading-tight tracking-tight'
+          }
+        >
+          {family.label}
+        </h2>
         <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">
           {family.blurb}
         </p>

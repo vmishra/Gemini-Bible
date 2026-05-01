@@ -125,13 +125,40 @@ export const FAMILIES: ModelFamily[] = [
           'Prior-gen native-audio Live model. Hold here only if you have prod traffic dependent on its specific voice profile.',
         capabilities: ['live-session', 'streaming-audio'],
       },
+    ],
+  },
+  {
+    id: 'speech',
+    label: 'Speech (TTS)',
+    kicker: 'voice',
+    blurb:
+      'Standalone text-to-speech. Single or multi-speaker, 30 prebuilt voices, natural-language style control via inline tags ([whispers], [excitedly]).',
+    models: [
       {
         id: 'gemini-3.1-flash-tts-preview',
         display: 'Gemini 3.1 Flash TTS',
-        tier: 'workhorse',
+        tier: 'flagship',
         modalities: { input: ['text'], output: ['audio'] },
-        when_to_use: 'Standalone speech generation when you don’t need a full Live session.',
-        capabilities: ['tts'],
+        when_to_use:
+          'Latest TTS. Single + multi-speaker audio with prebuilt voices and natural-language style control.',
+        capabilities: ['tts', 'multi-speaker', 'style-control'],
+      },
+      {
+        id: 'gemini-2.5-pro-preview-tts',
+        display: 'Gemini 2.5 Pro TTS',
+        tier: 'prior',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use:
+          'Prior-gen Pro TTS. Hold here only if you have validated voice profiles in production.',
+        capabilities: ['tts', 'multi-speaker'],
+      },
+      {
+        id: 'gemini-2.5-flash-preview-tts',
+        display: 'Gemini 2.5 Flash TTS',
+        tier: 'prior',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Prior-gen Flash TTS. Cheaper baseline; migrate to 3.1 Flash TTS when you can.',
+        capabilities: ['tts', 'multi-speaker'],
       },
     ],
   },
@@ -233,11 +260,44 @@ export const FAMILIES: ModelFamily[] = [
     ],
   },
   {
+    id: 'music',
+    label: 'Music generation',
+    kicker: 'audio',
+    blurb:
+      'Lyria models generate musical audio from text. Pro for full-length compositions; Realtime for streaming generation with control inputs.',
+    models: [
+      {
+        id: 'lyria-3-pro-preview',
+        display: 'Lyria 3 Pro',
+        tier: 'flagship',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Full-length music generation from prompt and structure.',
+        capabilities: ['music-gen'],
+      },
+      {
+        id: 'lyria-3-clip-preview',
+        display: 'Lyria 3 Clip',
+        tier: 'workhorse',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Short clips up to 30 seconds — UI cues, stings, idents.',
+        capabilities: ['music-gen'],
+      },
+      {
+        id: 'lyria-realtime-exp',
+        display: 'Lyria Realtime',
+        tier: 'experimental',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Streaming music generation with granular control. Experimental.',
+        capabilities: ['music-gen', 'streaming-audio'],
+      },
+    ],
+  },
+  {
     id: 'specialized',
     label: 'Specialized and experimental',
     kicker: 'previews',
     blurb:
-      'Purpose-built models for browser automation, deep research, robotics, and music. Treat as preview unless explicitly marked GA.',
+      'Purpose-built models for browser automation, deep research, and robotics. Treat as preview unless explicitly marked GA.',
     models: [
       {
         id: 'gemini-2.5-computer-use-preview-10-2025',
@@ -265,24 +325,43 @@ export const FAMILIES: ModelFamily[] = [
           'Embodied reasoning for robotics planning. Spatial understanding, task decomposition for actuators.',
         capabilities: ['embodied'],
       },
-      {
-        id: 'lyria-3-pro-preview',
-        display: 'Lyria 3 Pro',
-        tier: 'flagship',
-        modalities: { input: ['text'], output: ['audio'] },
-        when_to_use: 'Full-length music generation from prompt and structure.',
-        capabilities: ['music-gen'],
-      },
-      {
-        id: 'lyria-realtime-exp',
-        display: 'Lyria Realtime',
-        tier: 'experimental',
-        modalities: { input: ['text'], output: ['audio'] },
-        when_to_use: 'Streaming music generation with granular control. Experimental.',
-        capabilities: ['music-gen', 'streaming-audio'],
-      },
     ],
   },
+]
+
+/**
+ * Supergroups cluster related families under a single editorial banner.
+ * GenMedia is the canonical example — image, video, and music live together
+ * because the customer decision is "I want generated media" before it is
+ * "I want pixels vs frames vs notes". Families not in any supergroup render
+ * as standalone top-level sections.
+ */
+export type Supergroup = {
+  id: string
+  label: string
+  kicker: string
+  blurb: string
+  family_ids: string[]
+}
+
+export const SUPERGROUPS: Supergroup[] = [
+  {
+    id: 'genmedia',
+    label: 'GenMedia',
+    kicker: 'creative output',
+    blurb:
+      'Generative output across pixels, frames, and audio. Image and video share the Nano Banana / Veo lineage; music sits with Lyria; speech is the standalone TTS line. Asset-billed, not token-billed — refer to per-model notes.',
+    family_ids: ['image', 'video', 'music', 'speech'],
+  },
+]
+
+/** Order of top-level sections on the home page. References either a family id or a supergroup id. */
+export const HOME_SECTION_ORDER: string[] = [
+  'text',
+  'live',
+  'genmedia',          // supergroup containing image + video + music
+  'embeddings',
+  'specialized',
 ]
 
 export const TIER_ORDER: ModelTier[] = ['flagship', 'workhorse', 'lite', 'prior', 'preview', 'experimental']

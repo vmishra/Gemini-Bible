@@ -51,6 +51,8 @@ _PRICES: dict[str, tuple[float, float]] = {
     "gemini-3.1-flash-lite-preview": (0.02, 0.08),
     "gemini-3.1-flash-live-preview": (0.30, 2.50),
     "gemini-3.1-flash-tts-preview": (0.30, 2.50),
+    "gemini-2.5-pro-preview-tts": (1.00, 4.00),
+    "gemini-2.5-flash-preview-tts": (0.30, 2.50),
     "gemini-2.5-pro": (1.25, 10.00),
     "gemini-2.5-flash": (0.075, 0.30),
     "gemini-2.5-flash-lite": (0.02, 0.08),

@@ -3,14 +3,28 @@ import { create } from 'zustand'
 export type ModelRate = {
   input_per_mtok_usd: number
   output_per_mtok_usd: number
-  cached_input_per_mtok_usd: number
+  cached_input_per_mtok_usd: number | null
+  audio_input_per_mtok_usd?: number | null
+  cached_audio_per_mtok_usd?: number | null
+  long_context_threshold_tokens?: number | null
+  long_context_input_per_mtok_usd?: number | null
+  long_context_output_per_mtok_usd?: number | null
+  long_context_cached_per_mtok_usd?: number | null
+  storage_per_mtok_per_hour_usd?: number | null
   asset_note?: string | null
+  notes?: string | null
+}
+
+export type PricingMeta = {
+  as_of: string
+  source_url: string
 }
 
 export type PricingSnapshot = {
   rate_card: Record<string, ModelRate>
-  cache_discount: number
   usd_to_inr: number
+  as_of?: string
+  source_url?: string
 }
 
 type State = {

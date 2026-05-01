@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .auth import detect
-from .metrics import MetricsStore, _ASSET_NOTES, _CACHE_DISCOUNT, _PRICES, _USD_TO_INR
+from .metrics import MetricsStore, _ASSET_NOTES, _PRICES, _USD_TO_INR
 from .registry import load_all
 from .runner import RunRequest, run
 
@@ -121,17 +121,25 @@ def metrics_reset() -> dict:
 @app.get("/api/pricing")
 def pricing() -> dict:
     """Public rate card snapshot. Refresh in metrics.py against ai.google.dev/pricing."""
-    rate_card = {
-        model: {
-            "input_per_mtok_usd": rate[0],
-            "output_per_mtok_usd": rate[1],
-            "cached_input_per_mtok_usd": round(rate[0] * _CACHE_DISCOUNT, 6),
+    rate_card: dict[str, dict] = {}
+    for model, rate in _PRICES.items():
+        rate_card[model] = {
+            "input_per_mtok_usd": rate.input_per_mtok,
+            "output_per_mtok_usd": rate.output_per_mtok,
+            "cached_input_per_mtok_usd": rate.cached_input_per_mtok,
+            "audio_input_per_mtok_usd": rate.audio_input_per_mtok,
+            "cached_audio_per_mtok_usd": rate.cached_audio_per_mtok,
+            "long_context_threshold_tokens": rate.long_context_threshold_tokens,
+            "long_context_input_per_mtok_usd": rate.long_context_input_per_mtok,
+            "long_context_output_per_mtok_usd": rate.long_context_output_per_mtok,
+            "long_context_cached_per_mtok_usd": rate.long_context_cached_per_mtok,
+            "storage_per_mtok_per_hour_usd": rate.storage_per_mtok_per_hour,
             "asset_note": _ASSET_NOTES.get(model),
+            "notes": rate.notes,
         }
-        for model, rate in _PRICES.items()
-    }
     return {
         "rate_card": rate_card,
-        "cache_discount": _CACHE_DISCOUNT,
         "usd_to_inr": _USD_TO_INR,
+        "as_of": "2026-04-30",
+        "source_url": "https://ai.google.dev/pricing",
     }

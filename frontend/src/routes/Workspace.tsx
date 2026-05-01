@@ -259,7 +259,7 @@ function ModelCard({
           <div className="grid grid-cols-3 gap-3">
             <PriceCell label="input" value={rate?.input_per_mtok_usd} />
             <PriceCell label="output" value={rate?.output_per_mtok_usd} />
-            <PriceCell label="cached input" value={rate?.cached_input_per_mtok_usd} />
+            <PriceCell label="cached input" value={rate?.cached_input_per_mtok_usd ?? undefined} />
           </div>
           {rate?.asset_note && (
             <span className="text-[12px] text-[var(--text-muted)]">{rate.asset_note}</span>

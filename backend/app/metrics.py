@@ -26,11 +26,14 @@ What we capture per run:
       modalities.output   — candidates_tokens_details
       modalities.cached   — cache_tokens_details
 
-  Cost (estimate, INR + USD)
-    Non-cached prompt billed at the model's input rate; cached prompt
-    billed at a 25% discount; output and thinking tokens billed at the
-    output rate. Refresh _PRICES against ai.google.dev/pricing
-    quarterly — these are estimates, not a billing statement.
+  Cost (USD + INR estimate)
+    Per-model rate card. Rates split by modality (audio is 2-3.3× text
+    on the Flash family) and by long-context tier where Pro models
+    double input above 200K. Cached input billed at the model's
+    explicit cached rate (≈10× cheaper than input on Flash, ~10×
+    cheaper on Pro — *not* a flat 25% as earlier revisions assumed).
+    Refresh _PRICES against ai.google.dev/pricing quarterly. Estimates
+    only — never a billing statement.
 """
 
 from __future__ import annotations
@@ -38,62 +41,246 @@ from __future__ import annotations
 import statistics
 import time
 from collections import deque
+from dataclasses import dataclass
 from typing import Any, Deque
 
-# USD per million tokens, (input, output). Rate card snapshot — refresh
-# against ai.google.dev/pricing and cloud.google.com/vertex-ai/generative-ai/pricing
-# at least quarterly.
-_PRICES: dict[str, tuple[float, float]] = {
-    # Token-billed text + multimodal models.
-    "gemini-3.1-pro-preview": (1.25, 5.00),
-    "gemini-3-pro-preview": (1.25, 5.00),
-    "gemini-3-flash-preview": (0.075, 0.30),
-    "gemini-3.1-flash-lite-preview": (0.02, 0.08),
-    "gemini-3.1-flash-live-preview": (0.30, 2.50),
-    "gemini-3.1-flash-tts-preview": (0.30, 2.50),
-    "gemini-2.5-pro-preview-tts": (1.00, 4.00),
-    "gemini-2.5-flash-preview-tts": (0.30, 2.50),
-    "gemini-2.5-pro": (1.25, 10.00),
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-2.5-flash-lite": (0.02, 0.08),
-    "gemini-2.5-flash-native-audio-preview-12-2025": (0.30, 2.50),
-    "gemini-2.5-computer-use-preview-10-2025": (1.25, 10.00),
-    "gemini-embedding-2": (0.025, 0.0),
-    "gemini-embedding-001": (0.025, 0.0),
-    # Asset-billed image and video models. The (input, output) tuple here
-    # covers only the *text-prompt* token cost; the bulk of the bill is
-    # the per-asset fee surfaced separately via _ASSET_NOTES below.
-    "gemini-3-pro-image-preview": (1.25, 0.0),
-    "gemini-3.1-flash-image-preview": (0.30, 0.0),
-    "gemini-2.5-flash-image": (0.30, 0.0),
-    "imagen-4": (0.0, 0.0),
-    "veo-3.1-generate-preview": (0.30, 0.0),
-    "veo-3.1-lite-generate-preview": (0.075, 0.0),
+# ─── Rate card ──────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Rate:
+    """Per-model pricing in USD per 1M tokens.
+
+    Fields are deliberately explicit so the reader can read the row and
+    verify against ai.google.dev/pricing in a glance. The cost
+    computation uses these directly — no implicit discounts, no
+    "approximately" — every number on the row is a literal.
+    """
+
+    input_per_mtok: float                                 # text / image / video input
+    output_per_mtok: float
+    cached_input_per_mtok: float | None = None            # explicit + implicit cache hits
+    audio_input_per_mtok: float | None = None             # when audio is priced separately
+    cached_audio_per_mtok: float | None = None
+    long_context_threshold_tokens: int | None = None      # input above this triggers elevated tier
+    long_context_input_per_mtok: float | None = None      # tier-2 input rate
+    long_context_output_per_mtok: float | None = None     # tier-2 output rate
+    long_context_cached_per_mtok: float | None = None     # tier-2 cached input rate
+    storage_per_mtok_per_hour: float | None = None        # cache storage fee
+    notes: str | None = None
+
+
+# Rate card snapshot — May 2026, sourced from
+# https://ai.google.dev/pricing (page last updated 2026-04-30 UTC).
+# Refresh quarterly.
+_PRICES: dict[str, Rate] = {
+    # ─── Token-billed text + multimodal ────────────────────────────────────
+    "gemini-3.1-pro-preview": Rate(
+        input_per_mtok=2.00,
+        output_per_mtok=12.00,
+        cached_input_per_mtok=0.20,
+        long_context_threshold_tokens=200_000,
+        long_context_input_per_mtok=4.00,
+        long_context_output_per_mtok=18.00,
+        long_context_cached_per_mtok=0.40,
+        storage_per_mtok_per_hour=4.50,
+    ),
+    "gemini-3-pro-preview": Rate(
+        input_per_mtok=2.00,
+        output_per_mtok=12.00,
+        cached_input_per_mtok=0.20,
+        long_context_threshold_tokens=200_000,
+        long_context_input_per_mtok=4.00,
+        long_context_output_per_mtok=18.00,
+        long_context_cached_per_mtok=0.40,
+        storage_per_mtok_per_hour=4.50,
+    ),
+    "gemini-3-flash-preview": Rate(
+        input_per_mtok=0.50,
+        output_per_mtok=3.00,
+        cached_input_per_mtok=0.05,
+        audio_input_per_mtok=1.00,
+        cached_audio_per_mtok=0.10,
+        storage_per_mtok_per_hour=1.00,
+    ),
+    "gemini-3.1-flash-lite-preview": Rate(
+        input_per_mtok=0.25,
+        output_per_mtok=1.50,
+        cached_input_per_mtok=0.025,
+        audio_input_per_mtok=0.50,
+        cached_audio_per_mtok=0.05,
+        storage_per_mtok_per_hour=1.00,
+    ),
+    # Live API
+    "gemini-3.1-flash-live-preview": Rate(
+        input_per_mtok=0.75,
+        output_per_mtok=4.50,
+        audio_input_per_mtok=3.00,
+        notes="Live API — also priced per-minute: $0.005/min audio in, $0.018/min audio out.",
+    ),
+    "gemini-2.5-flash-native-audio-preview-12-2025": Rate(
+        input_per_mtok=0.50,
+        output_per_mtok=2.00,
+        audio_input_per_mtok=3.00,
+        notes="Live API — output audio billed at $12/MTok.",
+    ),
+    # TTS
+    "gemini-3.1-flash-tts-preview": Rate(input_per_mtok=1.00, output_per_mtok=20.00),
+    "gemini-2.5-pro-preview-tts": Rate(input_per_mtok=1.00, output_per_mtok=20.00),
+    "gemini-2.5-flash-preview-tts": Rate(input_per_mtok=0.50, output_per_mtok=10.00),
+    # Gemini 2.5 family
+    "gemini-2.5-pro": Rate(
+        input_per_mtok=1.25,
+        output_per_mtok=10.00,
+        cached_input_per_mtok=0.125,
+        long_context_threshold_tokens=200_000,
+        long_context_input_per_mtok=2.50,
+        long_context_output_per_mtok=15.00,
+        long_context_cached_per_mtok=0.25,
+        storage_per_mtok_per_hour=4.50,
+    ),
+    "gemini-2.5-flash": Rate(
+        input_per_mtok=0.30,
+        output_per_mtok=2.50,
+        cached_input_per_mtok=0.03,
+        audio_input_per_mtok=1.00,
+        cached_audio_per_mtok=0.10,
+        storage_per_mtok_per_hour=1.00,
+    ),
+    "gemini-2.5-flash-lite": Rate(
+        input_per_mtok=0.10,
+        output_per_mtok=0.40,
+        cached_input_per_mtok=0.01,
+        audio_input_per_mtok=0.30,
+        cached_audio_per_mtok=0.03,
+        storage_per_mtok_per_hour=1.00,
+    ),
+    # Specialized
+    "gemini-2.5-computer-use-preview-10-2025": Rate(
+        input_per_mtok=1.25,
+        output_per_mtok=10.00,
+        long_context_threshold_tokens=200_000,
+        long_context_input_per_mtok=2.50,
+        long_context_output_per_mtok=15.00,
+    ),
+    "gemini-robotics-er-1.6-preview": Rate(
+        input_per_mtok=1.00,
+        output_per_mtok=5.00,
+        audio_input_per_mtok=2.00,
+    ),
+    # Embeddings — output rate is zero in the per-MTok sense; the embedding
+    # response carries a vector, not output tokens.
+    "gemini-embedding-2": Rate(
+        input_per_mtok=0.20,
+        output_per_mtok=0.0,
+        audio_input_per_mtok=6.50,
+        notes="Image $0.45/MTok ($0.00012/image); video $12/MTok ($0.00079/frame).",
+    ),
+    "gemini-embedding-001": Rate(
+        input_per_mtok=0.15,
+        output_per_mtok=0.0,
+        notes="Batch input: $0.075/MTok.",
+    ),
+    # ─── Asset-billed image and video ──────────────────────────────────────
+    # The per-MTok tuple captures only the text-prompt input cost; the
+    # bulk of the bill is the per-asset fee surfaced via _ASSET_NOTES.
+    "gemini-3-pro-image-preview": Rate(input_per_mtok=2.00, output_per_mtok=0.0),
+    "gemini-3.1-flash-image-preview": Rate(input_per_mtok=0.50, output_per_mtok=0.0),
+    "gemini-2.5-flash-image": Rate(input_per_mtok=0.30, output_per_mtok=0.0),
+    "imagen-4": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
+    "veo-3.1-generate-preview": Rate(input_per_mtok=0.30, output_per_mtok=0.0),
+    "veo-3.1-lite-generate-preview": Rate(input_per_mtok=0.075, output_per_mtok=0.0),
 }
 
-# Per-asset fees that the per-MTok rate card cannot express. Estimates;
-# always verify against the live pricing page before quoting customers.
+# Per-asset fees that the per-MTok rate card cannot express.
 _ASSET_NOTES: dict[str, str] = {
-    "gemini-3-pro-image-preview": "+ ~$0.12 per generated image (up to 4K)",
-    "gemini-3.1-flash-image-preview": "+ ~$0.039 per generated image (1024 px)",
-    "gemini-2.5-flash-image": "+ ~$0.039 per generated image (1024 px)",
-    "imagen-4": "+ ~$0.04 per generated image",
-    "veo-3.1-generate-preview": "+ ~$0.40 per second of generated video",
-    "veo-3.1-lite-generate-preview": "+ ~$0.15 per second of generated video",
+    "gemini-3-pro-image-preview": "+ ~$0.134 per image (1K-2K), $0.24 (4K)",
+    "gemini-3.1-flash-image-preview": "+ ~$0.045-0.151 per image (0.5K-4K)",
+    "gemini-2.5-flash-image": "+ ~$0.039 per image (1K)",
+    "imagen-4": "+ ~$0.02-0.06 per image (Fast/Standard/Ultra)",
+    "veo-3.1-generate-preview": "+ ~$0.40-0.60 per second of video",
+    "veo-3.1-lite-generate-preview": "+ ~$0.05-0.08 per second of video",
 }
 
 _USD_TO_INR = 84.0
-_CACHE_DISCOUNT = 0.25  # cached prompt tokens billed at ~25% of input rate
 
 
-def _price_of(model: str) -> tuple[float, float]:
+def _price_of(model: str) -> Rate | None:
     """Longest-prefix match — `gemini-3-flash-preview-09-2026` resolves to
     the `gemini-3-flash-preview` row when the dated variant is missing."""
     best = ""
     for prefix in _PRICES:
         if model.startswith(prefix) and len(prefix) > len(best):
             best = prefix
-    return _PRICES.get(best, (0.0, 0.0))
+    return _PRICES.get(best)
+
+
+def _compute_cost_usd(
+    *,
+    rate: Rate,
+    text_input: int,
+    audio_input: int,
+    cached_text: int,
+    cached_audio: int,
+    output: int,
+    thinking: int,
+) -> dict:
+    """Honest cost math against a Rate row.
+
+    All arguments in tokens. text_input includes image and video inputs
+    (pricing is unified for those); audio_input is broken out because
+    several models charge a separate audio rate. Cached input mirrors
+    the same split.
+    """
+    total_billable_input = text_input + audio_input + cached_text + cached_audio
+    long_ctx = (
+        rate.long_context_threshold_tokens is not None
+        and total_billable_input > rate.long_context_threshold_tokens
+    )
+
+    text_rate = (
+        rate.long_context_input_per_mtok
+        if long_ctx and rate.long_context_input_per_mtok is not None
+        else rate.input_per_mtok
+    )
+    audio_rate = rate.audio_input_per_mtok if rate.audio_input_per_mtok is not None else text_rate
+    out_rate = (
+        rate.long_context_output_per_mtok
+        if long_ctx and rate.long_context_output_per_mtok is not None
+        else rate.output_per_mtok
+    )
+    cached_text_rate = (
+        rate.long_context_cached_per_mtok
+        if long_ctx and rate.long_context_cached_per_mtok is not None
+        else (rate.cached_input_per_mtok if rate.cached_input_per_mtok is not None else 0.0)
+    )
+    cached_audio_rate = (
+        rate.cached_audio_per_mtok
+        if rate.cached_audio_per_mtok is not None
+        else cached_text_rate
+    )
+
+    parts = {
+        "text_input_usd": text_input * text_rate / 1_000_000,
+        "audio_input_usd": audio_input * audio_rate / 1_000_000,
+        "cached_text_usd": cached_text * cached_text_rate / 1_000_000,
+        "cached_audio_usd": cached_audio * cached_audio_rate / 1_000_000,
+        "output_usd": output * out_rate / 1_000_000,
+        "thinking_usd": thinking * out_rate / 1_000_000,
+    }
+    total = sum(parts.values())
+    return {
+        "total_usd": total,
+        "tier": "long-context" if long_ctx else "standard",
+        "parts": parts,
+        "rates_used": {
+            "text_input_per_mtok": text_rate,
+            "audio_input_per_mtok": audio_rate,
+            "output_per_mtok": out_rate,
+            "cached_text_per_mtok": cached_text_rate,
+            "cached_audio_per_mtok": cached_audio_rate,
+        },
+    }
 
 
 def _merge_modalities(target: dict[str, int], details: Any) -> None:
@@ -109,6 +296,20 @@ def _merge_modalities(target: dict[str, int], details: Any) -> None:
             target[name] = target.get(name, 0) + int(count)
     except TypeError:
         return
+
+
+def _audio_split(modalities: dict[str, int], total: int) -> tuple[int, int]:
+    """Return (non_audio, audio) tokens given a modalities dict and a total.
+
+    Falls back to (total, 0) when no AUDIO bucket is present — the common
+    case for text-only workloads. The unified SDK's ModalityTokenCount
+    enum surfaces "AUDIO" as a stable string."""
+    audio = int(modalities.get("AUDIO", 0) or 0)
+    non_audio = max(total - audio, 0)
+    return non_audio, audio
+
+
+# ─── Per-run telemetry ──────────────────────────────────────────────────────
 
 
 class TurnMetrics:
@@ -199,14 +400,24 @@ class TurnMetrics:
                 return None
             return round((b - a) * 1000, 1)
 
-        in_price, out_price = _price_of(self.model)
-        billable_prompt = max(0, self.input_tokens - self.cached_tokens)
-        cost_usd = (
-            (billable_prompt / 1_000_000) * in_price
-            + (self.cached_tokens / 1_000_000) * in_price * _CACHE_DISCOUNT
-            + (self.output_tokens / 1_000_000) * out_price
-            + (self.thinking_tokens / 1_000_000) * out_price
-        )
+        rate = _price_of(self.model)
+        cost_breakdown: dict | None = None
+        cost_usd = 0.0
+        if rate is not None:
+            # Net (non-cached) prompt = input - cached. Split each side by audio modality.
+            net_prompt_tokens = max(0, self.input_tokens - self.cached_tokens)
+            net_text, net_audio = _audio_split(self.modalities_in, net_prompt_tokens)
+            cached_text, cached_audio = _audio_split(self.modalities_cached, self.cached_tokens)
+            cost_breakdown = _compute_cost_usd(
+                rate=rate,
+                text_input=net_text,
+                audio_input=net_audio,
+                cached_text=cached_text,
+                cached_audio=cached_audio,
+                output=self.output_tokens,
+                thinking=self.thinking_tokens,
+            )
+            cost_usd = cost_breakdown["total_usd"]
 
         # Tokens-per-second: prefer the streaming window if it's wide enough,
         # otherwise fall back to the full turn (one-shot calls deliver text and
@@ -255,6 +466,11 @@ class TurnMetrics:
             "finish_reason": self.finish_reason,
             "cost_usd": round(cost_usd, 6),
             "cost_inr": round(cost_usd * _USD_TO_INR, 4),
+            "cost_tier": cost_breakdown["tier"] if cost_breakdown else None,
+            "cost_parts": (
+                {k: round(v, 6) for k, v in cost_breakdown["parts"].items()}
+                if cost_breakdown else None
+            ),
             "error": self.error,
         }
 

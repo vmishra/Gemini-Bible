@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { cn } from './cn'
 
 /**
@@ -168,6 +169,7 @@ export function Slide({
   full?: boolean
   className?: string
 }) {
+  const prefersReducedMotion = useReducedMotion()
   return (
     <section
       data-slide
@@ -180,7 +182,20 @@ export function Slide({
       )}
       style={{ scrollSnapAlign: 'start' }}
     >
-      {children}
+      {prefersReducedMotion ? (
+        children
+      ) : (
+        <motion.div
+          // Each slide fades up as it enters the viewport. Plays once per
+          // mount so back-and-forth nav doesn't keep retriggering.
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }}
+        >
+          {children}
+        </motion.div>
+      )}
     </section>
   )
 }

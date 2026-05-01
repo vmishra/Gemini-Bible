@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
+import { motion, useInView, useReducedMotion } from 'motion/react'
 import { ArrowUpRight } from 'lucide-react'
 import {
   CAPABILITY_COLUMNS,
@@ -1473,8 +1474,12 @@ function parseScore(s: string | null): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-// 4. Long-context honesty — 128K vs 1M
+// 4. Long-context honesty — 128K vs 1M, rendered as a paired bar chart.
 function LongContextHonesty() {
+  const reduced = useReducedMotion()
+  const ref = useRef<HTMLUListElement>(null)
+  const inView = useInView(ref, { once: true, amount: 0.3 })
+
   return (
     <section className="flex flex-col gap-5">
       <SectionHeader
@@ -1483,29 +1488,43 @@ function LongContextHonesty() {
         blurb="MRCR v2 is Google's own multi-needle retrieval benchmark. At 128K input every Gemini 3 model holds above 60%; at 1M pointwise the same models drop into the 12–26% band. The window is real, the recall at depth is not. Architect for explicit retrieval over deep context."
       />
       <Panel pad={false} className="overflow-hidden">
-        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+        <div className="grid grid-cols-[1.4fr_3fr_3fr_minmax(60px,80px)] gap-4 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
           <Kicker>model</Kicker>
-          <Kicker className="text-right">@ 128k</Kicker>
-          <Kicker className="text-right">@ 1m</Kicker>
+          <Kicker>@ 128k input · MRCR v2</Kicker>
+          <Kicker>@ 1m input · MRCR v2</Kicker>
           <Kicker className="text-right">drop</Kicker>
         </div>
-        <ul>
+        <ul ref={ref}>
           {LONG_CONTEXT.map((row, i) => {
             const a = parseScore(row.at_128k) ?? 0
             const b = parseScore(row.at_1m) ?? 0
-            const drop = a > 0 ? `${(((a - b) / a) * 100).toFixed(0)}%` : '–'
+            const drop = a > 0 ? Math.round(((a - b) / a) * 100) : 0
             return (
               <li
                 key={row.model}
                 className={
-                  'grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-3 px-5 py-2.5' +
+                  'grid grid-cols-[1.4fr_3fr_3fr_minmax(60px,80px)] items-center gap-4 px-5 py-2.5' +
                   (i % 2 === 1 ? ' bg-[var(--surface-raised)]/40' : '')
                 }
               >
-                <code className="font-mono text-[12.5px] text-[var(--text)]">{row.model}</code>
-                <span className="numeric text-right font-mono text-[12.5px] text-[var(--text)]">{row.at_128k}</span>
-                <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">{row.at_1m}</span>
-                <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">−{drop}</span>
+                <code className="truncate font-mono text-[11.5px] text-[var(--text)]">{row.model}</code>
+                <ScoreBar
+                  value={row.at_128k}
+                  pct={a}
+                  tone="accent"
+                  active={inView || !!reduced}
+                  delay={i * 0.06}
+                />
+                <ScoreBar
+                  value={row.at_1m}
+                  pct={b}
+                  tone="muted"
+                  active={inView || !!reduced}
+                  delay={i * 0.06 + 0.08}
+                />
+                <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">
+                  −{drop}%
+                </span>
               </li>
             )
           })}
@@ -1513,6 +1532,40 @@ function LongContextHonesty() {
       </Panel>
       <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
     </section>
+  )
+}
+
+function ScoreBar({
+  value,
+  pct,
+  tone,
+  active,
+  delay,
+}: {
+  value: string
+  pct: number
+  tone: 'accent' | 'muted'
+  active: boolean
+  delay: number
+}) {
+  const reduced = useReducedMotion()
+  const color = tone === 'accent' ? 'var(--accent)' : 'var(--text-subtle)'
+  const finalWidth = `${Math.max(2, Math.min(100, pct))}%`
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-1.5 flex-1 rounded-full bg-[var(--elev-2)]">
+        <motion.div
+          initial={reduced ? { width: finalWidth } : { width: 0 }}
+          animate={active ? { width: finalWidth } : undefined}
+          transition={reduced ? { duration: 0 } : { duration: 0.7, delay, ease: [0.2, 0.7, 0.2, 1] }}
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ background: color, opacity: tone === 'accent' ? 0.85 : 0.45 }}
+        />
+      </div>
+      <span className="numeric w-12 text-right font-mono text-[12px] text-[var(--text-muted)]">
+        {value}
+      </span>
+    </div>
   )
 }
 

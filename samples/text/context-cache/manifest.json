@@ -5,9 +5,12 @@
   "title": "Explicit context caching",
   "summary": "Pre-cache a large prefix and reference it by name on subsequent calls. Cached prompt tokens bill at roughly 25% of the input rate.",
   "models": [
+    "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
     "gemini-2.5-pro",
-    "gemini-2.5-flash"
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite"
   ],
   "default_model": "gemini-3-flash-preview",
   "variants": [

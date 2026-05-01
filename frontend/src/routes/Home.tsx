@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import {
+  CAPABILITY_COLUMNS,
+  DECISIONS,
   FAMILIES,
   TIER_LABEL,
   TIER_ORDER,
+  findModelEntry,
   type ModelEntry,
   type ModelFamily,
   type ModelTier,
@@ -58,9 +61,14 @@ export function Home() {
       </header>
 
       <div className="flex flex-col gap-12 px-10 py-10">
+        <DecisionPanel samples={samples} />
+
         {FAMILIES.map((family) => (
           <FamilyBlock key={family.id} family={family} samplesByModel={samplesByModel} />
         ))}
+
+        <CapabilityMatrix />
+
 
         <footer className="mt-4 border-t border-[var(--border)] pt-8 text-[13px] text-[var(--text-subtle)]">
           Models, tiers, and copy edited by hand against the official docs at{' '}
@@ -254,6 +262,167 @@ function ModalityRow({ label, items }: { label: string; items: string[] }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function DecisionPanel({ samples }: { samples: Sample[] }) {
+  const select = useSamples((s) => s.select)
+  const go = useRoute((s) => s.go)
+
+  const sampleById = useMemo(() => {
+    const m = new Map<string, Sample>()
+    for (const s of samples) m.set(s.id, s)
+    return m
+  }, [samples])
+
+  const open = async (sampleId?: string) => {
+    if (!sampleId) return
+    const sample = sampleById.get(sampleId)
+    if (sample) {
+      await select(sample.id)
+      go('samples')
+    }
+  }
+
+  return (
+    <Panel pad={false} className="overflow-hidden">
+      <div className="flex items-baseline justify-between border-b border-[var(--border)] px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+            style={{ letterSpacing: '0.36em' }}
+          >
+            pick a model
+          </span>
+          <h2 className="text-[18px] font-medium leading-tight">
+            What are you actually building?
+          </h2>
+        </div>
+      </div>
+      <ul className="divide-y divide-[var(--border)]">
+        {DECISIONS.map((row) => {
+          const entry = findModelEntry(row.pick)
+          return (
+            <li
+              key={row.goal}
+              className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-3 hover:bg-[var(--elev-1)]/60 transition-colors"
+            >
+              <span className="text-[13.5px] leading-snug text-[var(--text)]">{row.goal}</span>
+              <span className="flex items-baseline gap-2">
+                <span className="text-[13px] font-medium text-[var(--text)]">
+                  {entry?.display ?? row.pick}
+                </span>
+                <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">{row.pick}</code>
+              </span>
+              {row.add ? (
+                <button
+                  type="button"
+                  onClick={() => void open(row.add)}
+                  className="group flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--elev-1)] px-2.5 py-1 text-[10.5px] uppercase text-[var(--text-muted)] hover:border-[var(--accent-hairline)] hover:text-[var(--text)]"
+                  style={{ letterSpacing: '0.18em' }}
+                >
+                  <ArrowUpRight
+                    size={11}
+                    strokeWidth={1.5}
+                    className="transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]"
+                  />
+                  {row.add.split('.')[1] ?? row.add}
+                </button>
+              ) : (
+                <span />
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </Panel>
+  )
+}
+
+function CapabilityMatrix() {
+  // Show the matrix for the families that have meaningful capability variation
+  // — text and live. Image/video/embeddings have one inherent capability each
+  // and are better represented on their family card, not in this grid.
+  const rows = useMemo(
+    () =>
+      FAMILIES.filter((f) => f.id === 'text' || f.id === 'live').flatMap((f) =>
+        f.models.map((m) => ({ family: f, model: m })),
+      ),
+    [],
+  )
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.36em' }}
+        >
+          capabilities
+        </span>
+        <h2 className="text-[26px] font-medium leading-tight tracking-tight">
+          What each model supports
+        </h2>
+        <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          A scan-friendly view of who has thinking, tools, grounding, structured
+          output, caching, streaming, chat, live, and asset modalities.
+        </p>
+      </div>
+      <Panel pad={false} className="overflow-x-auto">
+        <table className="min-w-full text-[12.5px]">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)]">
+              <th className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-3 text-left font-mono text-[10.5px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.18em' }}>
+                model
+              </th>
+              {CAPABILITY_COLUMNS.map((c) => (
+                <th
+                  key={c.id}
+                  className="px-3 py-3 text-center font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                  style={{ letterSpacing: '0.18em' }}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ model }, i) => (
+              <tr
+                key={model.id}
+                className={i % 2 === 0 ? 'bg-transparent' : 'bg-[var(--surface-raised)]/40'}
+              >
+                <td className="sticky left-0 z-10 bg-inherit px-4 py-2.5">
+                  <div className="flex flex-col">
+                    <span className="text-[13px] text-[var(--text)]">{model.display}</span>
+                    <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">
+                      {model.id}
+                    </code>
+                  </div>
+                </td>
+                {CAPABILITY_COLUMNS.map((c) => {
+                  const has = model.capabilities.includes(c.id)
+                  return (
+                    <td key={c.id} className="px-3 py-2.5 text-center">
+                      <span
+                        className={
+                          has
+                            ? 'font-mono text-[14px] text-[var(--accent)]'
+                            : 'font-mono text-[14px] text-[var(--text-subtle)]'
+                        }
+                        aria-label={has ? 'supported' : 'not supported'}
+                      >
+                        {has ? '●' : '–'}
+                      </span>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+    </section>
   )
 }
 

@@ -296,6 +296,57 @@ export const TIER_LABEL: Record<ModelTier, string> = {
   experimental: 'experimental',
 }
 
+/**
+ * Decision flow — "I want to do X, pick this." Hand-written so the answers
+ * read as a senior architect's recommendation, not a feature matrix lookup.
+ * Each entry resolves to a real model id in this catalog.
+ */
+export type DecisionRow = {
+  goal: string                     // What the user is trying to do.
+  pick: string                     // Model id (matches an entry above).
+  add?: string                     // Optional companion feature (sample id) — e.g. "+ context cache".
+}
+
+export const DECISIONS: DecisionRow[] = [
+  { goal: 'Real-time voice agent, sub-second turn-taking', pick: 'gemini-3.1-flash-live-preview' },
+  { goal: 'Default text → text for most workloads', pick: 'gemini-3-flash-preview' },
+  { goal: 'Hardest reasoning, multi-step coding, long agentic plans', pick: 'gemini-3.1-pro-preview' },
+  { goal: 'Cheapest at scale — routing, classification, extraction', pick: 'gemini-3.1-flash-lite-preview' },
+  { goal: 'Tool-using agent (Python functions as tools)', pick: 'gemini-3-flash-preview', add: 'text.tool-call' },
+  { goal: 'Multi-turn chat with stateful tool use', pick: 'gemini-3-flash-preview', add: 'text.tool-call-chat' },
+  { goal: 'Long-context RAG with a fixed prefix', pick: 'gemini-3-flash-preview', add: 'text.context-cache' },
+  { goal: 'Answers grounded in fresh web facts', pick: 'gemini-3-flash-preview', add: 'text.grounding-search' },
+  { goal: '"Near me" / location-aware queries', pick: 'gemini-3-flash-preview', add: 'text.grounding-maps' },
+  { goal: 'Strict JSON output against a schema', pick: 'gemini-3-flash-preview', add: 'text.structured-output' },
+  { goal: 'Hero / 4K image asset for marketing', pick: 'gemini-3-pro-image-preview' },
+  { goal: 'Production-batch image generation', pick: 'gemini-3.1-flash-image-preview' },
+  { goal: 'Pure text → image, no Gemini reasoning needed', pick: 'imagen-4' },
+  { goal: 'Cinematic short video with native audio', pick: 'veo-3.1-generate-preview' },
+  { goal: 'Cost-sensitive video iteration', pick: 'veo-3.1-lite-generate-preview' },
+  { goal: 'Embeddings for retrieval / RAG / similarity', pick: 'gemini-embedding-2' },
+  { goal: 'Browser automation (clicks, forms, navigation)', pick: 'gemini-2.5-computer-use-preview-10-2025' },
+  { goal: 'Multi-step agentic deep research', pick: 'deep-research-preview-04-2026' },
+]
+
+/**
+ * Capability matrix — a tighter view across the text family. The
+ * checkmarks are derived from each model's `capabilities` list, but the
+ * column order here is the editorial pick of what matters for a quick scan.
+ */
+export const CAPABILITY_COLUMNS: { id: string; label: string }[] = [
+  { id: 'thinking', label: 'thinking' },
+  { id: 'tools', label: 'tools' },
+  { id: 'grounding-search', label: 'search' },
+  { id: 'grounding-maps', label: 'maps' },
+  { id: 'structured-output', label: 'json' },
+  { id: 'context-cache', label: 'cache' },
+  { id: 'streaming', label: 'stream' },
+  { id: 'chat', label: 'chat' },
+  { id: 'live-session', label: 'live' },
+  { id: 'image-gen', label: 'img-out' },
+  { id: 'video-gen', label: 'vid-out' },
+]
+
 export function findFamilyForModel(modelId: string): ModelFamily | null {
   for (const fam of FAMILIES) {
     if (fam.models.some((m) => m.id === modelId)) return fam

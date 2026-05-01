@@ -23,6 +23,9 @@ import {
   BEST_PRACTICES_SOURCE,
   CACHE_BREAKEVEN,
   CACHE_SOURCE,
+  FLASH_LITE_HIGHLIGHTS,
+  FLASH_LITE_NOT_PUBLISHED,
+  FLASH_LITE_SOURCE,
   FLASH_VS_PRO,
   GENERATION_JUMPS,
   GROUNDING_MIGRATION,
@@ -89,6 +92,8 @@ export function Home() {
         <GenerationJumpPanel />
 
         <FlashVsProPanel />
+
+        <FlashLitePanel />
 
         <FrontierComparison />
 
@@ -1236,6 +1241,53 @@ function PullQuote({ q }: { q: PullQuoteData }) {
   )
 }
 
+// 2b. Flash-Lite in context — the cheapest 3.x tier
+function FlashLitePanel() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="3.1 flash-lite"
+        title="The cheapest 3.x tier — and where it earns its place"
+        blurb="Lite is the volume model. At $0.25/MTok input ($0.50 audio), it costs half of 3 Flash and runs at a published 363 tok/s. Holds graduate-level science (GPQA 86.9%) and multimodal reasoning (MMMU-Pro 76.8%); folds on deep reasoning (HLE 16% vs Flash's 33.7%) and at the 1M context depth."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <ul className="divide-y divide-[var(--border)]">
+          {FLASH_LITE_HIGHLIGHTS.map((h) => (
+            <li
+              key={h.metric}
+              className="grid grid-cols-1 gap-2 px-5 py-3 lg:grid-cols-[1.4fr_1fr_3fr]"
+            >
+              <span
+                className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                style={{ letterSpacing: '0.18em' }}
+              >
+                {h.metric}
+              </span>
+              <span className="numeric font-mono text-[14px] text-[var(--text)]">{h.value}</span>
+              <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">{h.context}</span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+      <Panel className="bg-[var(--surface-raised)]">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.18em' }}
+        >
+          not published for flash-lite
+        </span>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+          Google does not publish Flash-Lite scores for{' '}
+          {FLASH_LITE_NOT_PUBLISHED.join(' · ')}. Cells in the comparison
+          table below are intentionally blank — community leaderboards drift
+          fast and we don't fabricate.
+        </p>
+      </Panel>
+      <SourceLine url={FLASH_LITE_SOURCE.url} label={FLASH_LITE_SOURCE.label} />
+    </section>
+  )
+}
+
 // 3. Frontier comparison — Gemini 3 Flash + 3 Pro vs Sonnet 4.5 vs GPT-5.2 vs Grok 4.1 Fast
 function FrontierComparison() {
   const groups: BenchmarkRow['group'][] = ['reasoning', 'coding', 'multimodal', 'agentic', 'long-context']
@@ -1279,6 +1331,7 @@ function FrontierGroup({ group }: { group: BenchmarkRow['group'] }) {
               {[
                 ['3 Flash', 'gemini_3_flash'],
                 ['3 Pro', 'gemini_3_pro'],
+                ['3.1 Lite', 'gemini_3_1_flash_lite'],
                 ['2.5 Flash', 'gemini_2_5_flash'],
                 ['2.5 Pro', 'gemini_2_5_pro'],
                 ['Sonnet 4.5', 'claude_sonnet_4_5'],
@@ -1310,6 +1363,7 @@ function FrontierRow({ row, alt }: { row: BenchmarkRow; alt: boolean }) {
   const cells: Array<[string, keyof BenchmarkRow]> = [
     ['gemini_3_flash', 'gemini_3_flash'],
     ['gemini_3_pro', 'gemini_3_pro'],
+    ['gemini_3_1_flash_lite', 'gemini_3_1_flash_lite'],
     ['gemini_2_5_flash', 'gemini_2_5_flash'],
     ['gemini_2_5_pro', 'gemini_2_5_pro'],
     ['claude_sonnet_4_5', 'claude_sonnet_4_5'],

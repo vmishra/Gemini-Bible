@@ -32,6 +32,7 @@ export type BenchmarkRow = {
   description: string                // one-line gloss
   gemini_3_flash: string | null
   gemini_3_pro: string | null
+  gemini_3_1_flash_lite: string | null
   gemini_2_5_flash: string | null
   gemini_2_5_pro: string | null
   claude_sonnet_4_5: string | null
@@ -48,6 +49,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Academic reasoning, full set, text + multimodal',
     gemini_3_flash: '33.7%',
     gemini_3_pro: '37.5%',
+    gemini_3_1_flash_lite: '16.0%',
     gemini_2_5_flash: '11.0%',
     gemini_2_5_pro: '21.6%',
     claude_sonnet_4_5: '13.7%',
@@ -62,6 +64,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Visual reasoning puzzles (ARC Prize verified)',
     gemini_3_flash: '33.6%',
     gemini_3_pro: '31.1%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '2.5%',
     gemini_2_5_pro: '4.9%',
     claude_sonnet_4_5: '13.6%',
@@ -75,6 +78,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Graduate-level scientific knowledge',
     gemini_3_flash: '90.4%',
     gemini_3_pro: '91.9%',
+    gemini_3_1_flash_lite: '86.9%',
     gemini_2_5_flash: '82.8%',
     gemini_2_5_pro: '86.4%',
     claude_sonnet_4_5: '83.4%',
@@ -89,6 +93,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'High-school competition mathematics',
     gemini_3_flash: '95.2%',
     gemini_3_pro: '95.0%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '72.0%',
     gemini_2_5_pro: '88.0%',
     claude_sonnet_4_5: '87.0%',
@@ -103,6 +108,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Multimodal understanding and reasoning',
     gemini_3_flash: '81.2%',
     gemini_3_pro: '81.0%',
+    gemini_3_1_flash_lite: '76.8%',
     gemini_2_5_flash: '66.7%',
     gemini_2_5_pro: '68.0%',
     claude_sonnet_4_5: '68.0%',
@@ -116,6 +122,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Knowledge acquisition from video',
     gemini_3_flash: '86.9%',
     gemini_3_pro: '87.6%',
+    gemini_3_1_flash_lite: '84.8%',
     gemini_2_5_flash: '79.2%',
     gemini_2_5_pro: '83.6%',
     claude_sonnet_4_5: '77.8%',
@@ -129,6 +136,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Information synthesis from complex charts',
     gemini_3_flash: '80.3%',
     gemini_3_pro: '81.4%',
+    gemini_3_1_flash_lite: '73.2%',
     gemini_2_5_flash: '63.7%',
     gemini_2_5_pro: '69.6%',
     claude_sonnet_4_5: '68.5%',
@@ -142,6 +150,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Competitive coding (Codeforces / ICPC / IOI), Elo',
     gemini_3_flash: '2316',
     gemini_3_pro: '2439',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '1143',
     gemini_2_5_pro: '1775',
     claude_sonnet_4_5: '1418',
@@ -156,6 +165,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Agentic coding on real GitHub issues',
     gemini_3_flash: '78.0%',
     gemini_3_pro: '76.2%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '60.4%',
     gemini_2_5_pro: '59.6%',
     claude_sonnet_4_5: '77.2%',
@@ -170,6 +180,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Agentic terminal coding (Terminus-2 harness)',
     gemini_3_flash: '47.6%',
     gemini_3_pro: '54.2%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '16.9%',
     gemini_2_5_pro: '32.6%',
     claude_sonnet_4_5: '42.8%',
@@ -183,6 +194,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Agentic tool use across realistic workflows',
     gemini_3_flash: '90.2%',
     gemini_3_pro: '90.7%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '79.5%',
     gemini_2_5_pro: '77.8%',
     claude_sonnet_4_5: '87.2%',
@@ -196,6 +208,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Long-horizon real-world software tasks',
     gemini_3_flash: '49.4%',
     gemini_3_pro: '36.4%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '3.7%',
     gemini_2_5_pro: '10.5%',
     claude_sonnet_4_5: '38.9%',
@@ -209,6 +222,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Multi-step workflows over MCP tools',
     gemini_3_flash: '57.4%',
     gemini_3_pro: '54.1%',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '3.4%',
     gemini_2_5_pro: '8.8%',
     claude_sonnet_4_5: '43.8%',
@@ -222,6 +236,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Agentic long-term coherence (mean net worth, USD)',
     gemini_3_flash: '$3,635',
     gemini_3_pro: '$5,478',
+    gemini_3_1_flash_lite: null,
     gemini_2_5_flash: '$549',
     gemini_2_5_pro: '$574',
     claude_sonnet_4_5: '$3,839',
@@ -235,6 +250,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Factual grounding, parametric, search, multimodal',
     gemini_3_flash: '61.9%',
     gemini_3_pro: '70.5%',
+    gemini_3_1_flash_lite: '40.6%',
     gemini_2_5_flash: '50.4%',
     gemini_2_5_pro: '63.4%',
     claude_sonnet_4_5: '48.9%',
@@ -248,6 +264,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Parametric knowledge / hallucination resistance',
     gemini_3_flash: '68.7%',
     gemini_3_pro: '72.1%',
+    gemini_3_1_flash_lite: '43.3%',
     gemini_2_5_flash: '28.1%',
     gemini_2_5_pro: '54.5%',
     claude_sonnet_4_5: '29.3%',
@@ -261,6 +278,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Multilingual Q&A across 100 languages',
     gemini_3_flash: '91.8%',
     gemini_3_pro: '91.8%',
+    gemini_3_1_flash_lite: '88.9%',
     gemini_2_5_flash: '86.6%',
     gemini_2_5_pro: '89.5%',
     claude_sonnet_4_5: '89.1%',
@@ -274,6 +292,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: '8-needle long-context recall at 128K input',
     gemini_3_flash: '67.2%',
     gemini_3_pro: '77.0%',
+    gemini_3_1_flash_lite: '60.1%',
     gemini_2_5_flash: '54.3%',
     gemini_2_5_pro: '58.0%',
     claude_sonnet_4_5: '47.1%',
@@ -287,6 +306,7 @@ export const BENCHMARK_TABLE: BenchmarkRow[] = [
     description: 'Pointwise long-context recall at 1M input',
     gemini_3_flash: '22.1%',
     gemini_3_pro: '26.3%',
+    gemini_3_1_flash_lite: '12.3%',
     gemini_2_5_flash: '21.0%',
     gemini_2_5_pro: '16.4%',
     claude_sonnet_4_5: 'n/s',
@@ -303,6 +323,47 @@ export const BENCHMARK_SOURCE = {
   label: 'Gemini 3 Flash Model Card (Google DeepMind, Dec 2025)',
   as_of: ACCESSED,
 }
+
+export const FLASH_LITE_SOURCE = {
+  url: 'https://deepmind.google/models/model-cards/gemini-3-1-flash-lite/',
+  label: 'Gemini 3.1 Flash-Lite Model Card (Google DeepMind, March 2026)',
+  as_of: ACCESSED,
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Flash-Lite-in-context — what makes the cheapest 3.x tier worth its own panel.
+
+export type LiteHighlight = {
+  metric: string
+  value: string
+  context: string                  // what it means; how it compares to 3 Flash
+}
+
+export const FLASH_LITE_HIGHLIGHTS: LiteHighlight[] = [
+  { metric: 'Output speed', value: '363 tok/s', context: 'The only authoritative tok/s number Google publishes for the family.' },
+  { metric: 'Input price', value: '$0.25/MTok', context: 'Half the price of 3 Flash ($0.50). Flash-Lite is the unit-cost winner.' },
+  { metric: 'GPQA Diamond', value: '86.9%', context: 'vs 90.4% on 3 Flash. Holds graduate-level science at half the price.' },
+  { metric: 'MMMU-Pro', value: '76.8%', context: 'vs 81.2% on 3 Flash. Multimodal reasoning stays viable.' },
+  { metric: 'Video-MMMU', value: '84.8%', context: 'Within 2 pt of 3 Flash (86.9%). Video understanding barely degrades.' },
+  { metric: 'MMMLU (100 languages)', value: '88.9%', context: 'vs 91.8% on 3 Flash. Multilingual coverage holds.' },
+  { metric: "Humanity's Last Exam", value: '16.0%', context: 'vs 33.7% on 3 Flash. Deep reasoning is capped — escalate to Flash.' },
+  { metric: 'MRCR v2 @ 1M', value: '12.3%', context: 'Crashes hard at 1M depth. Stay under 128K, or use Flash for depth.' },
+]
+
+export const FLASH_LITE_NOT_PUBLISHED = [
+  'ARC-AGI-2',
+  'AIME 2025',
+  'ScreenSpot-Pro',
+  'OmniDocBench 1.5',
+  'LiveCodeBench Pro',
+  'Terminal-bench 2.0',
+  'SWE-bench Verified',
+  'τ2-bench',
+  'ToolAthlon',
+  'MCP Atlas',
+  'Vending-Bench 2',
+  'Global PIQA',
+] as const
 
 // ────────────────────────────────────────────────────────────────────────────
 // 2. Generation jump — 2.5 → 3 highlights
@@ -328,6 +389,11 @@ export const GENERATION_JUMPS: JumpRow[] = [
   { benchmark: 'AIME 2025 (no tools)', family: 'flash', before: '72.0%', after: '95.2%', multiple_or_pct: '+32%' },
   { benchmark: 'ARC-AGI-2', family: 'flash', before: '2.5%', after: '33.6%', multiple_or_pct: '13×' },
 ]
+
+// ────────────────────────────────────────────────────────────────────────────
+// Type widening: JumpRow.family now also accepts 'flash-lite' so future
+// 2.5 Flash-Lite → 3.1 Flash-Lite jumps can be added once Google publishes
+// matched benchmarks.
 
 // ────────────────────────────────────────────────────────────────────────────
 // 3. "Flash beats Pro" — benchmarks where 3 Flash matches or exceeds 3 Pro

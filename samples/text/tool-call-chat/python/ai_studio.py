@@ -8,10 +8,21 @@ Tools declared once on chats.create persist across every send_message.
 Automatic function calling stays on across the conversation, and the
 call history accumulates on the response — index from the previous
 turn's length to count calls per turn.
+
+Thinking: Gemini 3.x and 2.5 generate internal reasoning tokens by default.
+3.x uses thinking_level ∈ {minimal, low, medium, high}, default "high";
+2.5 uses thinking_budget int (-1 dynamic, 0 off on Flash). Set explicitly
+on chats.create so the same level applies to every send_message.
 """
 
 from google import genai
 from google.genai import types
+
+
+def _thinking_config(model: str, level: str) -> types.ThinkingConfig:
+    if model.startswith("gemini-3"):
+        return types.ThinkingConfig(thinking_level=level)
+    return types.ThinkingConfig(thinking_budget=-1)
 
 
 def get_current_temperature(location: str) -> dict:
@@ -42,7 +53,11 @@ def get_packing_advice(temperature_c: float) -> dict:
     return {"temperature_c": temperature_c, "advice": advice}
 
 
-def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
+def main(
+    model: str = "gemini-3-flash-preview",
+    prompt: str | None = None,
+    thinking_level: str = "medium",
+) -> dict:
     client = genai.Client()
 
     chat = client.chats.create(
@@ -53,6 +68,7 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
                 "You are a terse travel assistant. When asked about a city, call the "
                 "weather and packing tools before answering. Keep answers under three sentences."
             ),
+            thinking_config=_thinking_config(model, thinking_level),
         ),
     )
 
@@ -115,6 +131,8 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
         "model": model,
         "tools": ["get_current_temperature", "get_packing_advice"],
         "tool_calls": sum(len(t["tool_calls"]) for t in turns),
+        "thinking_knob": "thinking_level" if model.startswith("gemini-3") else "thinking_budget",
+        "thinking_value": thinking_level if model.startswith("gemini-3") else -1,
         "turns": turns,
         "usage_metadata": aggregated,
         "finish_reason": _finish_reason(last_response) if last_response else None,

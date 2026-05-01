@@ -12,10 +12,20 @@ The flow:
      small per-call follow-up question.
 
 Watch usage_metadata.cached_content_token_count climb on the second call.
+
+Thinking: Gemini 3.x and 2.5 generate internal reasoning tokens by default.
+3.x uses thinking_level ∈ {minimal, low, medium, high}, default "high";
+2.5 uses thinking_budget int (-1 dynamic, 0 off on Flash). Set explicitly.
 """
 
 from google import genai
 from google.genai import types
+
+
+def _thinking_config(model: str, level: str) -> types.ThinkingConfig:
+    if model.startswith("gemini-3"):
+        return types.ThinkingConfig(thinking_level=level)
+    return types.ThinkingConfig(thinking_budget=-1)
 
 # A long-enough prefix to clear the minimum cacheable size. Real workloads
 # would substitute a real document, transcript, or codebase summary.
@@ -28,7 +38,11 @@ PREFIX = (
 ) * 600  # ~30K tokens of repetitive text — enough to be cacheable.
 
 
-def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
+def main(
+    model: str = "gemini-3-flash-preview",
+    prompt: str | None = None,
+    thinking_level: str = "medium",
+) -> dict:
     client = genai.Client()
 
     cache = client.caches.create(
@@ -50,7 +64,10 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
             model=model,
             contents=prompt
             or "Which storage tier handles cold analytics queries, and how is the tier chosen?",
-            config=types.GenerateContentConfig(cached_content=cache.name),
+            config=types.GenerateContentConfig(
+                cached_content=cache.name,
+                thinking_config=_thinking_config(model, thinking_level),
+            ),
         )
 
         usage = response.usage_metadata
@@ -61,6 +78,8 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
             "cache_token_count": getattr(cache.usage_metadata, "total_token_count", None)
             if getattr(cache, "usage_metadata", None)
             else None,
+            "thinking_knob": "thinking_level" if model.startswith("gemini-3") else "thinking_budget",
+            "thinking_value": thinking_level if model.startswith("gemini-3") else -1,
             "finish_reason": _finish_reason(response),
             "usage_metadata": usage.model_dump(mode="json") if usage else None,
         }

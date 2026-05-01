@@ -3,6 +3,10 @@
 Surface: AI Studio (api-key authenticated).
 SDK:     google-genai (unified Python SDK).
 Auth:    GEMINI_API_KEY in the environment.
+
+Thinking: Gemini 3.x and 2.5 generate internal reasoning tokens by default.
+3.x uses thinking_level ∈ {minimal, low, medium, high}, default "high";
+2.5 uses thinking_budget int (-1 dynamic, 0 off on Flash). Set explicitly.
 """
 
 from google import genai
@@ -15,14 +19,27 @@ SYSTEM_INSTRUCTION = (
 )
 
 
-def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
+def _thinking_config(model: str, level: str) -> types.ThinkingConfig:
+    if model.startswith("gemini-3"):
+        return types.ThinkingConfig(thinking_level=level)
+    return types.ThinkingConfig(thinking_budget=-1)
+
+
+def main(
+    model: str = "gemini-3-flash-preview",
+    prompt: str | None = None,
+    thinking_level: str = "medium",
+) -> dict:
     client = genai.Client()
 
     response = client.models.generate_content(
         model=model,
         contents=prompt
         or "We're switching the prod Cloud SQL instance from a regional HA pair to a single zonal node to save cost. Sign-off?",
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_INSTRUCTION,
+            thinking_config=_thinking_config(model, thinking_level),
+        ),
     )
 
     usage = response.usage_metadata
@@ -30,6 +47,8 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
         "text": response.text,
         "model": model,
         "system_instruction": SYSTEM_INSTRUCTION,
+        "thinking_knob": "thinking_level" if model.startswith("gemini-3") else "thinking_budget",
+        "thinking_value": thinking_level if model.startswith("gemini-3") else -1,
         "finish_reason": _finish_reason(response),
         "usage_metadata": usage.model_dump(mode="json") if usage else None,
     }

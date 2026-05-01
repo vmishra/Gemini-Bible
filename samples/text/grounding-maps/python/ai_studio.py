@@ -8,13 +8,27 @@ Pattern: declare types.Tool(google_maps=types.GoogleMaps()) and (optionally)
 pin a caller location via ToolConfig.retrieval_config.lat_lng so that
 'near me' style prompts resolve sensibly. Place results land on
 response.candidates[0].grounding_metadata.grounding_chunks[*].maps.
+
+Thinking: Gemini 3.x and 2.5 generate internal reasoning tokens by default.
+3.x uses thinking_level ∈ {minimal, low, medium, high}, default "high";
+2.5 uses thinking_budget int (-1 dynamic, 0 off on Flash). Set explicitly.
 """
 
 from google import genai
 from google.genai import types
 
 
-def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
+def _thinking_config(model: str, level: str) -> types.ThinkingConfig:
+    if model.startswith("gemini-3"):
+        return types.ThinkingConfig(thinking_level=level)
+    return types.ThinkingConfig(thinking_budget=-1)
+
+
+def main(
+    model: str = "gemini-3-flash-preview",
+    prompt: str | None = None,
+    thinking_level: str = "medium",
+) -> dict:
     client = genai.Client()
 
     response = client.models.generate_content(
@@ -29,6 +43,7 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
                     lat_lng=types.LatLng(latitude=34.050481, longitude=-118.248526),
                 ),
             ),
+            thinking_config=_thinking_config(model, thinking_level),
         ),
     )
 
@@ -57,6 +72,8 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
         "model": model,
         "places": places,
         "lat_lng": {"latitude": 34.050481, "longitude": -118.248526},
+        "thinking_knob": "thinking_level" if model.startswith("gemini-3") else "thinking_budget",
+        "thinking_value": thinking_level if model.startswith("gemini-3") else -1,
         "finish_reason": _finish_reason(response),
         "usage_metadata": usage.model_dump(mode="json") if usage else None,
     }

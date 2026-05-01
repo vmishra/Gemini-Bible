@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'motion/react'
 import { ArrowUpRight } from 'lucide-react'
 import {
@@ -649,15 +649,44 @@ function renderTree(
 
 // ────────────────────────────────────────────────────────────────────────────
 
+function decisionCategory(modelId: string): { label: string; order: number } {
+  if (modelId.includes('-live') || modelId.includes('native-audio')) return { label: 'voice', order: 1 }
+  if (modelId.startsWith('veo-')) return { label: 'video', order: 4 }
+  if (modelId.includes('-image-preview') || modelId === 'gemini-2.5-flash-image' || modelId.startsWith('imagen-'))
+    return { label: 'image', order: 3 }
+  if (modelId.startsWith('lyria-')) return { label: 'music', order: 5 }
+  if (modelId.includes('-tts')) return { label: 'speech', order: 6 }
+  if (modelId.startsWith('gemini-embedding')) return { label: 'embeddings', order: 7 }
+  if (modelId.includes('computer-use') || modelId.includes('deep-research') || modelId.includes('robotics'))
+    return { label: 'specialized', order: 8 }
+  return { label: 'text & agents', order: 2 }
+}
+
 function DecisionPanel({ samples }: { samples: Sample[] }) {
   const select = useSamples((s) => s.select)
   const go = useRoute((s) => s.go)
+  const reduced = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, amount: 0.15 })
 
   const sampleById = useMemo(() => {
     const m = new Map<string, Sample>()
     for (const s of samples) m.set(s.id, s)
     return m
   }, [samples])
+
+  const grouped = useMemo(() => {
+    const buckets = new Map<string, { order: number; rows: typeof DECISIONS }>()
+    for (const row of DECISIONS) {
+      const cat = decisionCategory(row.pick)
+      const b = buckets.get(cat.label) ?? { order: cat.order, rows: [] as typeof DECISIONS }
+      b.rows.push(row)
+      buckets.set(cat.label, b)
+    }
+    return [...buckets.entries()]
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([label, b]) => ({ label, rows: b.rows }))
+  }, [])
 
   const open = async (sampleId?: string) => {
     if (!sampleId) return
@@ -668,6 +697,7 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
     }
   }
 
+  let rowIndex = 0
   return (
     <Panel pad={false} className="overflow-hidden">
       <div className="flex items-baseline justify-between border-b border-[var(--border)] px-6 py-4">
@@ -683,47 +713,80 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
           </h2>
         </div>
       </div>
-      <ul className="divide-y divide-[var(--border)]">
-        {DECISIONS.map((row) => {
-          const entry = findModelEntry(row.pick)
-          return (
-            <li
-              key={row.goal}
-              className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-3 hover:bg-[var(--elev-1)]/60 transition-colors"
-            >
-              <span className="text-[13.5px] leading-snug text-[var(--text)]">{row.goal}</span>
-              <span className="flex items-baseline gap-2">
-                <span className="text-[13px] font-medium text-[var(--text)]">
-                  {entry?.display ?? row.pick}
-                </span>
-                <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">{row.pick}</code>
+      <div ref={ref}>
+        {grouped.map((group) => (
+          <section key={group.label} className="border-b border-[var(--border)] last:border-b-0">
+            <div className="bg-[var(--surface-raised)] px-6 py-2">
+              <span
+                className="font-mono text-[10px] uppercase text-[var(--text-subtle)]"
+                style={{ letterSpacing: '0.32em' }}
+              >
+                {group.label}
               </span>
-              {row.add ? (
-                <button
-                  type="button"
-                  onClick={() => void open(row.add)}
-                  className="group flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--elev-1)] px-2.5 py-1 text-[10.5px] uppercase text-[var(--text-muted)] hover:border-[var(--accent-hairline)] hover:text-[var(--text)]"
-                  style={{ letterSpacing: '0.18em' }}
-                >
-                  <ArrowUpRight
-                    size={11}
-                    strokeWidth={1.5}
-                    className="transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]"
-                  />
-                  {row.add.split('.')[1] ?? row.add}
-                </button>
-              ) : (
-                <span />
-              )}
-            </li>
-          )
-        })}
-      </ul>
+            </div>
+            <ul className="divide-y divide-[var(--border)]">
+              {group.rows.map((row) => {
+                const entry = findModelEntry(row.pick)
+                const i = rowIndex++
+                const flowVariants = {
+                  initial: { opacity: 0, x: -8 },
+                  animate: { opacity: 1, x: 0 },
+                }
+                return (
+                  <motion.li
+                    key={row.goal}
+                    custom={i}
+                    initial={reduced ? false : 'initial'}
+                    animate={inView ? 'animate' : reduced ? 'animate' : 'initial'}
+                    variants={flowVariants}
+                    transition={{
+                      duration: reduced ? 0 : 0.35,
+                      delay: reduced ? 0 : i * 0.025,
+                      ease: [0.2, 0.7, 0.2, 1],
+                    }}
+                    className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-6 py-3 hover:bg-[var(--elev-1)]/60 transition-colors"
+                  >
+                    <span className="text-[13.5px] leading-snug text-[var(--text)]">{row.goal}</span>
+                    <FlowArrow active={inView || !!reduced} delay={i * 0.025 + 0.1} />
+                    <span className="flex items-baseline gap-2">
+                      <span className="text-[13px] font-medium text-[var(--text)]">
+                        {entry?.display ?? row.pick}
+                      </span>
+                      <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">{row.pick}</code>
+                    </span>
+                    {row.add ? (
+                      <button
+                        type="button"
+                        onClick={() => void open(row.add)}
+                        className="group flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--elev-1)] px-2.5 py-1 text-[10.5px] uppercase text-[var(--text-muted)] hover:border-[var(--accent-hairline)] hover:text-[var(--text)]"
+                        style={{ letterSpacing: '0.18em' }}
+                      >
+                        <ArrowUpRight
+                          size={11}
+                          strokeWidth={1.5}
+                          className="transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]"
+                        />
+                        {row.add.split('.')[1] ?? row.add}
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                  </motion.li>
+                )
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
     </Panel>
   )
 }
 
 function CapabilityMatrix() {
+  const reduced = useReducedMotion()
+  const ref = useRef<HTMLTableSectionElement>(null)
+  const inView = useInView(ref, { once: true, amount: 0.2 })
+
   // Show the matrix for the families that have meaningful capability variation
   // — text and live. Image/video/embeddings have one inherent capability each
   // and are better represented on their family card, not in this grid.
@@ -770,11 +833,11 @@ function CapabilityMatrix() {
               ))}
             </tr>
           </thead>
-          <tbody>
-            {rows.map(({ model }, i) => (
+          <tbody ref={ref}>
+            {rows.map(({ model }, rowIdx) => (
               <tr
                 key={model.id}
-                className={i % 2 === 0 ? 'bg-transparent' : 'bg-[var(--surface-raised)]/40'}
+                className={rowIdx % 2 === 0 ? 'bg-transparent' : 'bg-[var(--surface-raised)]/40'}
               >
                 <td className="sticky left-0 z-10 bg-inherit px-4 py-2.5">
                   <div className="flex flex-col">
@@ -784,20 +847,29 @@ function CapabilityMatrix() {
                     </code>
                   </div>
                 </td>
-                {CAPABILITY_COLUMNS.map((c) => {
+                {CAPABILITY_COLUMNS.map((c, colIdx) => {
                   const has = model.capabilities.includes(c.id)
+                  // Stagger: rows top-to-bottom, then cells left-to-right within each row.
+                  const delay = rowIdx * 0.04 + colIdx * 0.015
                   return (
                     <td key={c.id} className="px-3 py-2.5 text-center">
-                      <span
+                      <motion.span
+                        initial={reduced ? false : { opacity: 0, scale: 0.6 }}
+                        animate={inView ? { opacity: 1, scale: 1 } : reduced ? { opacity: 1 } : undefined}
+                        transition={
+                          reduced
+                            ? { duration: 0 }
+                            : { duration: 0.3, delay, ease: [0.2, 0.7, 0.2, 1] }
+                        }
                         className={
                           has
-                            ? 'font-mono text-[14px] text-[var(--accent)]'
-                            : 'font-mono text-[14px] text-[var(--text-subtle)]'
+                            ? 'inline-block font-mono text-[14px] text-[var(--accent)]'
+                            : 'inline-block font-mono text-[14px] text-[var(--text-subtle)]'
                         }
                         aria-label={has ? 'supported' : 'not supported'}
                       >
                         {has ? '●' : '–'}
-                      </span>
+                      </motion.span>
                     </td>
                   )
                 })}
@@ -1181,6 +1253,8 @@ function SectionHeader({
 
 // 1. Generation jump — 2.5 → 3 across the family
 function GenerationJumpPanel() {
+  const ref = useRef<HTMLUListElement>(null)
+  const inView = useInView(ref, { once: true, amount: 0.2 })
   return (
     <section className="flex flex-col gap-5">
       <SectionHeader
@@ -1196,7 +1270,7 @@ function GenerationJumpPanel() {
           <Kicker className="text-right">3 / 3.1</Kicker>
           <Kicker className="text-right">delta</Kicker>
         </div>
-        <ul>
+        <ul ref={ref}>
           {GENERATION_JUMPS.map((j, i) => (
             <li
               key={`${j.benchmark}-${j.family}`}
@@ -1211,7 +1285,9 @@ function GenerationJumpPanel() {
               </span>
               <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">{j.before}</span>
               <span className="numeric text-right font-mono text-[12.5px] text-[var(--text)]">{j.after}</span>
-              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">{j.multiple_or_pct}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">
+                <CountUpDelta value={j.multiple_or_pct} active={inView} delay={i * 0.06} />
+              </span>
             </li>
           ))}
         </ul>
@@ -1219,6 +1295,52 @@ function GenerationJumpPanel() {
       <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
     </section>
   )
+}
+
+/**
+ * Count-up animation for the delta column. Parses numeric strings like
+ * "13×", "+103%", "+74%", "9.5×", "+32%" and tweens from 0 to the final
+ * value while preserving the surrounding format. Falls back to the static
+ * string when prefers-reduced-motion is on or the format isn't parseable.
+ */
+function CountUpDelta({ value, active, delay }: { value: string; active: boolean; delay: number }) {
+  const reduced = useReducedMotion()
+  const [display, setDisplay] = useState(reduced ? value : '–')
+
+  // Parse: leading "+", numeric (with optional decimal), trailing "×" or "%".
+  const match = value.match(/^([+\-]?)(\d+(?:\.\d+)?)([×%])$/)
+
+  useEffect(() => {
+    if (!active || reduced || !match) {
+      setDisplay(value)
+      return
+    }
+    const [, sign, numStr, suffix] = match
+    const target = parseFloat(numStr)
+    const isFloat = numStr.includes('.')
+    const start = performance.now()
+    const duration = 700
+    let raf = 0
+
+    const tick = (t: number) => {
+      const elapsed = t - start - delay * 1000
+      if (elapsed < 0) {
+        raf = requestAnimationFrame(tick)
+        return
+      }
+      const p = Math.min(1, elapsed / duration)
+      // Ease-out cubic.
+      const eased = 1 - Math.pow(1 - p, 3)
+      const current = target * eased
+      const formatted = isFloat ? current.toFixed(1) : Math.round(current).toString()
+      setDisplay(`${sign}${formatted}${suffix}`)
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [active, value, delay, reduced, match])
+
+  return <>{display}</>
 }
 
 // 2. Flash beats Pro — published comparison highlights
@@ -1532,6 +1654,36 @@ function LongContextHonesty() {
       </Panel>
       <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
     </section>
+  )
+}
+
+// Animated arrow for the decision flow — strokes its line in left-to-right
+// when the slide enters viewport, then sits as a static accent glyph.
+function FlowArrow({ active, delay }: { active: boolean; delay: number }) {
+  const reduced = useReducedMotion()
+  return (
+    <svg width="32" height="12" viewBox="0 0 32 12" fill="none" className="shrink-0">
+      <motion.path
+        d="M2 6 L26 6"
+        stroke="var(--accent)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        initial={reduced ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+        animate={active ? { pathLength: 1, opacity: 0.7 } : undefined}
+        transition={reduced ? { duration: 0 } : { duration: 0.35, delay, ease: 'easeOut' }}
+      />
+      <motion.path
+        d="M22 2 L28 6 L22 10"
+        stroke="var(--accent)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        initial={reduced ? { opacity: 1 } : { opacity: 0 }}
+        animate={active ? { opacity: 0.85 } : undefined}
+        transition={reduced ? { duration: 0 } : { duration: 0.2, delay: delay + 0.3 }}
+      />
+    </svg>
   )
 }
 

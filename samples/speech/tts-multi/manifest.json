@@ -1,0 +1,30 @@
+{
+  "id": "speech.tts-multi",
+  "category": "speech",
+  "scenario": "tts-multi",
+  "title": "TTS — multi-speaker dialogue",
+  "summary": "Render a scripted dialogue with two distinct prebuilt voices. The model assigns lines based on the speaker labels in the prompt body.",
+  "models": [
+    "gemini-3.1-flash-tts-preview",
+    "gemini-2.5-pro-preview-tts",
+    "gemini-2.5-flash-preview-tts"
+  ],
+  "default_model": "gemini-3.1-flash-tts-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Speech generation — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/speech-generation" },
+    { "label": "Text-to-speech — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/text-to-speech" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "MultiSpeakerVoiceConfig supports up to two speakers in the current preview. The speaker label in each SpeakerVoiceConfig must match the labels used in the prompt text.",
+    "Audio comes back as one stitched stream — speaker boundaries are baked into the PCM, not exposed as discrete segments. Re-cut with a downstream segmenter if you need separate tracks.",
+    "Style-control tags ([whispers], [excitedly]) work per line inside the dialogue body."
+  ]
+}

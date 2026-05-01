@@ -614,6 +614,27 @@ function RunResultPanel() {
           />
         )}
 
+        {parsed?.audio && (
+          <audio
+            controls
+            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)]"
+            src={`data:${parsed.audio.mime_type};base64,${parsed.audio.data_b64}`}
+          />
+        )}
+
+        {parsed?.audio_clips && parsed.audio_clips.length > 1 && (
+          <div className="flex flex-col gap-2">
+            {parsed.audio_clips.slice(1).map((clip, i) => (
+              <audio
+                key={i}
+                controls
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)]"
+                src={`data:${clip.mime_type};base64,${clip.data_b64}`}
+              />
+            ))}
+          </div>
+        )}
+
         {parsed?.vectors && parsed.vectors.length > 0 && (
           <div className="flex flex-col gap-2">
             {parsed.vectors.map((v, i) => (
@@ -637,6 +658,8 @@ function RunResultPanel() {
         {!parsed?.text &&
           !parsed?.images?.length &&
           !parsed?.video &&
+          !parsed?.audio &&
+          !parsed?.audio_clips?.length &&
           !parsed?.vectors?.length && (
             <pre className="overflow-x-auto font-mono text-[12.5px] text-[var(--text-muted)]">
               <code>{result.stdout || result.stderr}</code>

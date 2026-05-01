@@ -1,0 +1,29 @@
+{
+  "id": "music.lyria",
+  "category": "music",
+  "scenario": "generation",
+  "title": "Music generation (Lyria)",
+  "summary": "Generate musical audio from a text prompt with Lyria. Clip returns 30-second MP3; Pro returns full-length MP3 or WAV.",
+  "models": [
+    "lyria-3-pro-preview",
+    "lyria-3-clip-preview"
+  ],
+  "default_model": "lyria-3-clip-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Music generation — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/music-generation" },
+    { "label": "Generative audio — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/audio/overview" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "Lyria 3 Clip always returns ~30s MP3. Lyria 3 Pro produces full-length tracks and supports response_mime_type='audio/wav' for lossless output.",
+    "The response also carries text parts when the model emits lyrics or section labels — iterate every part and dispatch by type.",
+    "Music generation is asset-billed (per-track, with per-second adjustments on Pro). Token cost in the run panel is the prompt only — the bulk of the bill is on the audio asset, see the pricing link."
+  ]
+}

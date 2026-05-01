@@ -24,6 +24,7 @@ export type RunMetrics = {
 
 export type GeneratedImage = { mime_type: string; data_b64: string }
 export type GeneratedVideo = { mime_type: string; bytes: number; data_b64: string; path?: string }
+export type GeneratedAudio = { mime_type: string; bytes: number; data_b64: string }
 export type EmbeddingVector = { dimension: number; preview: number[] }
 
 export type RunResult = {
@@ -38,6 +39,8 @@ export type RunResult = {
         usage_metadata?: unknown
         images?: GeneratedImage[]
         video?: GeneratedVideo
+        audio?: GeneratedAudio
+        audio_clips?: GeneratedAudio[]
         vectors?: EmbeddingVector[]
         snippets?: string[]
         parsed?: unknown

@@ -4,13 +4,15 @@ import { useSamples, type Sample } from '../state/samples'
 import { Kbd } from '../ui/components/Kbd'
 import { cn } from '../ui/cn'
 
-const CATEGORY_ORDER = ['text', 'live', 'image', 'video', 'embeddings'] as const
+const CATEGORY_ORDER = ['text', 'live', 'image', 'video', 'music', 'speech', 'embeddings'] as const
 
 const CATEGORY_LABEL: Record<(typeof CATEGORY_ORDER)[number], string> = {
   text: 'text',
   live: 'live',
   image: 'image',
   video: 'video',
+  music: 'music',
+  speech: 'speech',
   embeddings: 'embeddings',
 }
 

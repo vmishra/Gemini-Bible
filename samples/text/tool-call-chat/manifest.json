@@ -7,8 +7,10 @@
   "models": [
     "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
     "gemini-2.5-pro",
-    "gemini-2.5-flash"
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite"
   ],
   "default_model": "gemini-3-flash-preview",
   "variants": [
@@ -28,6 +30,6 @@
     "Tools are declared on chats.create — every send_message inherits them, so you do not re-pass the tools list per turn.",
     "Each turn's automatic_function_calling_history is *cumulative across the chat* — index from the previous turn's length to count calls per turn rather than per session.",
     "Tool-call tokens land in tool_use_prompt_token_count; for a long chat with many short tool calls this can dominate input cost. Compare against text.tool-call (single-shot) on the same prompt to see the per-turn overhead.",
-    "Flash-Lite tiers (gemini-3.1-flash-lite-preview, gemini-2.5-flash-lite) are intentionally omitted: function calling inside a stateful chats.create session is unreliable on Lite in practice, despite the model card listing function calling as supported. Use 3 Flash or higher for chat-with-tools; Flash-Lite is fine for single-shot tool calls — see text.tool-call."
+    "Flash-Lite supports function calling per the official model card, but Google publishes no agentic / tool-use benchmark scores (τ2-bench, ToolAthlon, MCP Atlas) for it — pin to 3 Flash or higher for production chat-with-tools workloads, treat Lite as a cheap path for routing-style work. Streaming of function-call arguments is unsupported on Lite (3 Flash and Pro do support it); our sample doesn't use it."
   ]
 }

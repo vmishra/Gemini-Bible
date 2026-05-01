@@ -40,8 +40,9 @@ export function Home() {
   return (
     <section className="flex flex-1 flex-col overflow-y-auto">
       <header className="border-b border-[var(--border)] px-10 py-10">
+        <BuiltOnLockup />
         <span
-          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          className="mt-8 block font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
           style={{ letterSpacing: '0.36em' }}
         >
           the family
@@ -80,26 +81,33 @@ export function Home() {
         <MigrationLadder />
 
 
-        <footer className="mt-4 border-t border-[var(--border)] pt-8 text-[13px] text-[var(--text-subtle)]">
-          Models, tiers, and copy edited by hand against the official docs at{' '}
-          <a
-            href="https://ai.google.dev/gemini-api/docs/models"
-            target="_blank"
-            rel="noreferrer"
-            className="text-[var(--text-muted)] underline-offset-4 hover:text-[var(--text)] hover:underline"
-          >
-            ai.google.dev/gemini-api/docs/models
-          </a>{' '}
-          and{' '}
-          <a
-            href="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models"
-            target="_blank"
-            rel="noreferrer"
-            className="text-[var(--text-muted)] underline-offset-4 hover:text-[var(--text)] hover:underline"
-          >
-            cloud.google.com/vertex-ai/generative-ai/docs/learn/models
-          </a>
-          . Refresh quarterly.
+        <footer className="mt-4 border-t border-[var(--border)] pt-8">
+          <p className="text-[13px] leading-relaxed text-[var(--text-subtle)]">
+            Models, tiers, and copy edited by hand against the official docs at{' '}
+            <a
+              href="https://ai.google.dev/gemini-api/docs/models"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--text-muted)] underline-offset-4 hover:text-[var(--text)] hover:underline"
+            >
+              ai.google.dev/gemini-api/docs/models
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--text-muted)] underline-offset-4 hover:text-[var(--text)] hover:underline"
+            >
+              cloud.google.com/vertex-ai/generative-ai/docs/learn/models
+            </a>
+            . Refresh quarterly.
+          </p>
+          <p className="mt-3 max-w-3xl text-[12px] leading-relaxed text-[var(--text-subtle)]">
+            Google, the Google logo, Gemini, and the Gemini mark are trademarks
+            of Google LLC. Gemini Bible is an independent reference and is not
+            affiliated with, endorsed by, or sponsored by Google.
+          </p>
         </footer>
       </div>
     </section>
@@ -191,6 +199,49 @@ function SupergroupBlock({
         ))}
       </div>
     </section>
+  )
+}
+
+function BuiltOnLockup() {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className="font-mono text-[10px] uppercase text-[var(--text-subtle)]"
+        style={{ letterSpacing: '0.36em' }}
+      >
+        built on
+      </span>
+      <span aria-hidden className="h-3 w-px bg-[var(--border)]" />
+      <a
+        href="https://about.google"
+        target="_blank"
+        rel="noreferrer"
+        className="block transition-opacity hover:opacity-80"
+        aria-label="Google"
+      >
+        <img
+          src="/brand/google-wordmark.png"
+          alt="Google"
+          className="h-[18px] w-auto select-none"
+          draggable={false}
+        />
+      </a>
+      <span aria-hidden className="text-[var(--text-subtle)]">×</span>
+      <a
+        href="https://ai.google.dev/gemini-api/docs"
+        target="_blank"
+        rel="noreferrer"
+        className="block transition-opacity hover:opacity-80"
+        aria-label="Gemini API"
+      >
+        <img
+          src="/brand/gemini-wordmark.png"
+          alt="Gemini"
+          className="h-[20px] w-auto select-none"
+          draggable={false}
+        />
+      </a>
+    </div>
   )
 }
 

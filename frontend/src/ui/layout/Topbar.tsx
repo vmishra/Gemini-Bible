@@ -24,8 +24,20 @@ export function Topbar() {
       <button
         type="button"
         onClick={() => useRoute.getState().go('home')}
-        className="flex items-center gap-3"
+        className="flex items-center gap-2.5"
+        aria-label="Gemini Bible — home"
       >
+        <img
+          src="/brand/gemini-mark.png"
+          alt=""
+          aria-hidden="true"
+          className="h-5 w-auto select-none"
+          draggable={false}
+        />
+        <span
+          aria-hidden
+          className="h-4 w-px bg-[var(--border)]"
+        />
         <span className="font-display text-[18px] leading-none" style={{ fontWeight: 500 }}>
           Gemini Bible
         </span>

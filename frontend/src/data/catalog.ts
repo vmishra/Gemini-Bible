@@ -507,6 +507,73 @@ export const DECISIONS: DecisionRow[] = [
 ]
 
 /**
+ * Decision flow chart — branching tree from "what are you building?" to a
+ * concrete model recommendation. Five category columns, each with 2-3 leaf
+ * models. Rendered as a real flow chart in routes/Home.tsx.
+ */
+export type FlowLeaf = {
+  label: string                    // short use-case description
+  model: string                    // canonical model id
+  sample?: string                  // optional sample id to jump to
+}
+
+export type FlowCategory = {
+  id: string
+  kicker: string
+  label: string
+  kids: FlowLeaf[]
+}
+
+export const DECISION_FLOW: FlowCategory[] = [
+  {
+    id: 'voice',
+    kicker: 'voice',
+    label: 'real-time audio',
+    kids: [
+      { label: 'voice agent · sub-second turn-taking', model: 'gemini-3.1-flash-live-preview' },
+      { label: 'standalone speech', model: 'gemini-3.1-flash-tts-preview' },
+    ],
+  },
+  {
+    id: 'text',
+    kicker: 'reasoning · agents',
+    label: 'text & tools',
+    kids: [
+      { label: 'default workhorse', model: 'gemini-3-flash-preview', sample: 'text.basic' },
+      { label: 'hardest reasoning', model: 'gemini-3.1-pro-preview', sample: 'text.thinking' },
+      { label: 'cheapest at scale', model: 'gemini-3.1-flash-lite-preview' },
+    ],
+  },
+  {
+    id: 'image',
+    kicker: 'pixels',
+    label: 'image generation',
+    kids: [
+      { label: 'hero / 4K studio', model: 'gemini-3-pro-image-preview' },
+      { label: 'production batch', model: 'gemini-3.1-flash-image-preview', sample: 'image.nano-banana' },
+    ],
+  },
+  {
+    id: 'video',
+    kicker: 'frames',
+    label: 'video generation',
+    kids: [
+      { label: 'cinematic + audio', model: 'veo-3.1-generate-preview', sample: 'video.veo' },
+      { label: 'cost-sensitive', model: 'veo-3.1-lite-generate-preview' },
+    ],
+  },
+  {
+    id: 'embed',
+    kicker: 'vectors · agents',
+    label: 'embed & specialised',
+    kids: [
+      { label: 'multimodal embeddings', model: 'gemini-embedding-2', sample: 'embeddings.basic' },
+      { label: 'browser automation', model: 'gemini-2.5-computer-use-preview-10-2025' },
+    ],
+  },
+]
+
+/**
  * Capability matrix — a tighter view across the text family. The
  * checkmarks are derived from each model's `capabilities` list, but the
  * column order here is the editorial pick of what matters for a quick scan.

@@ -4,6 +4,7 @@ import { ArrowUpRight } from 'lucide-react'
 import {
   CAPABILITY_COLUMNS,
   DECISIONS,
+  DECISION_FLOW,
   FAMILIES,
   HOME_SECTION_ORDER,
   MIGRATIONS,
@@ -11,12 +12,15 @@ import {
   TIER_LABEL,
   TIER_ORDER,
   findModelEntry,
+  type FlowCategory,
+  type FlowLeaf,
   type ModelEntry,
   type ModelFamily,
   type ModelTier,
   type Supergroup,
 } from '../data/catalog'
 import { Slide, SlideShell, useInScrollRoot } from '../ui/Slides'
+import { cn } from '../ui/cn'
 import {
   ACCESSED,
   BENCHMARK_TABLE,
@@ -90,8 +94,12 @@ export function Home() {
         />
       </Slide>
 
-      <Slide id="decision" name="Decision picker">
-        <DecisionPanel samples={samples} />
+      <Slide id="decision-chart" name="Decision · flow chart">
+        <DecisionChartPanel samples={samples} />
+      </Slide>
+
+      <Slide id="decision" name="Decision · full list">
+        <DecisionTablePanel samples={samples} />
       </Slide>
 
       <Slide id="generation-jump" name="2.5 → 3 jump">
@@ -662,33 +670,15 @@ function decisionCategory(modelId: string): { label: string; order: number } {
   return { label: 'text & agents', order: 2 }
 }
 
-function DecisionPanel({ samples }: { samples: Sample[] }) {
+function useOpenSample(samples: Sample[]) {
   const select = useSamples((s) => s.select)
   const go = useRoute((s) => s.go)
-  const reduced = useReducedMotion()
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInScrollRoot(ref, { once: true, amount: 0.15 })
-
   const sampleById = useMemo(() => {
     const m = new Map<string, Sample>()
     for (const s of samples) m.set(s.id, s)
     return m
   }, [samples])
-
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, { order: number; rows: typeof DECISIONS }>()
-    for (const row of DECISIONS) {
-      const cat = decisionCategory(row.pick)
-      const b = buckets.get(cat.label) ?? { order: cat.order, rows: [] as typeof DECISIONS }
-      b.rows.push(row)
-      buckets.set(cat.label, b)
-    }
-    return [...buckets.entries()]
-      .sort((a, b) => a[1].order - b[1].order)
-      .map(([label, b]) => ({ label, rows: b.rows }))
-  }, [])
-
-  const open = async (sampleId?: string) => {
+  return async (sampleId?: string) => {
     if (!sampleId) return
     const sample = sampleById.get(sampleId)
     if (sample) {
@@ -696,8 +686,10 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
       go('samples')
     }
   }
+}
 
-  let rowIndex = 0
+function DecisionChartPanel({ samples }: { samples: Sample[] }) {
+  const open = useOpenSample(samples)
   return (
     <Panel pad={false} className="overflow-hidden">
       <div className="flex items-baseline justify-between border-b border-[var(--border)] px-6 py-4">
@@ -712,7 +704,61 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
             What are you actually building?
           </h2>
         </div>
+        <span
+          className="font-mono text-[10px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.28em' }}
+        >
+          tap a leaf · jump to a sample
+        </span>
       </div>
+
+      <DecisionFlowChart open={open} />
+    </Panel>
+  )
+}
+
+function DecisionTablePanel({ samples }: { samples: Sample[] }) {
+  const open = useOpenSample(samples)
+  const reduced = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInScrollRoot(ref, { once: true, amount: 0.15 })
+
+  const grouped = useMemo(() => {
+    const buckets = new Map<string, { order: number; rows: typeof DECISIONS }>()
+    for (const row of DECISIONS) {
+      const cat = decisionCategory(row.pick)
+      const b = buckets.get(cat.label) ?? { order: cat.order, rows: [] as typeof DECISIONS }
+      b.rows.push(row)
+      buckets.set(cat.label, b)
+    }
+    return [...buckets.entries()]
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([label, b]) => ({ label, rows: b.rows }))
+  }, [])
+
+  let rowIndex = 0
+  return (
+    <Panel pad={false} className="overflow-hidden">
+      <div className="flex items-baseline justify-between border-b border-[var(--border)] px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+            style={{ letterSpacing: '0.36em' }}
+          >
+            full decision list
+          </span>
+          <h2 className="text-[18px] font-medium leading-tight">
+            Every goal → its current best model
+          </h2>
+        </div>
+        <span
+          className="font-mono text-[10px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.28em' }}
+        >
+          arrow buttons run the matching sample
+        </span>
+      </div>
+
       <div ref={ref}>
         {grouped.map((group) => (
           <section key={group.label} className="border-b border-[var(--border)] last:border-b-0">
@@ -779,6 +825,160 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
         ))}
       </div>
     </Panel>
+  )
+}
+
+/**
+ * Branching flow chart from "what are you building?" to a concrete model.
+ * Real diagram — not a list with arrows. Five category columns, each with
+ * 2-3 leaf models, connector lines drawn as borders so they stay crisp at
+ * any zoom and survive prefers-reduced-motion. Leaves are buttons; clicking
+ * a leaf with a sample mapping jumps to that sample.
+ */
+function DecisionFlowChart({ open }: { open: (sampleId?: string) => void }) {
+  const cols = DECISION_FLOW.length
+  // Spine inset so it spans between the centres of the first and last category
+  // columns rather than the page edges — gives the tree a real top-of-T shape.
+  const spineInsetPct = 100 / (2 * cols)
+
+  return (
+    <div className="overflow-x-auto px-6 py-10">
+      <div
+        className="mx-auto flex flex-col items-stretch"
+        style={{ minWidth: '1040px', maxWidth: '1240px' }}
+      >
+        {/* Root node */}
+        <div className="flex justify-center">
+          <div
+            className="rounded-[var(--radius-md)] border border-[var(--accent-hairline)] bg-[var(--accent-soft)] px-6 py-3 text-center"
+            style={{ boxShadow: 'var(--shadow-1)' }}
+          >
+            <span
+              className="font-mono text-[9.5px] uppercase text-[var(--accent)]"
+              style={{ letterSpacing: '0.36em' }}
+            >
+              start
+            </span>
+            <div className="text-[14px] font-medium leading-tight text-[var(--text)]">
+              What are you building?
+            </div>
+          </div>
+        </div>
+
+        {/* Down to spine */}
+        <div className="self-center h-7 w-px bg-[var(--border-strong)]" />
+
+        {/* Spine — inset to first/last column centres */}
+        <div className="relative h-px w-full">
+          <div
+            className="absolute top-0 h-px bg-[var(--border-strong)]"
+            style={{ left: `${spineInsetPct}%`, right: `${spineInsetPct}%` }}
+          />
+        </div>
+
+        {/* Drop lines into each category header */}
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {DECISION_FLOW.map((cat: FlowCategory) => (
+            <div key={cat.id} className="flex justify-center">
+              <div className="h-7 w-px bg-[var(--border-strong)]" />
+            </div>
+          ))}
+        </div>
+
+        {/* Category columns — each column owns its header + stacked leaves */}
+        <div
+          className="grid gap-6"
+          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+        >
+          {DECISION_FLOW.map((cat: FlowCategory) => (
+            <CategoryColumn key={cat.id} cat={cat} onOpen={open} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CategoryColumn({
+  cat,
+  onOpen,
+}: {
+  cat: FlowCategory
+  onOpen: (sampleId?: string) => void
+}) {
+  return (
+    <div className="flex flex-col">
+      {/* Category header */}
+      <div className="rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--elev-2)] px-3 py-2.5 text-center">
+        <span
+          className="font-mono text-[9.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.32em' }}
+        >
+          {cat.kicker}
+        </span>
+        <div className="mt-0.5 text-[13px] font-medium leading-tight text-[var(--text)]">
+          {cat.label}
+        </div>
+      </div>
+
+      {/* Vertical guide + stacked leaves. Guide stops at the centre of the last
+          leaf so it doesn't extend past the bottom of the column. */}
+      <div className="relative mt-4 pl-4">
+        <div
+          className="absolute left-1.5 top-0 w-px bg-[var(--border)]"
+          style={{ bottom: 'calc(50% / var(--leaf-count))' }}
+          // bottom = half a leaf's worth — approximate; kept under guide so it
+          // visually terminates at the last leaf's stub.
+        />
+        <div
+          className="flex flex-col gap-2.5"
+          style={{ ['--leaf-count' as string]: String(cat.kids.length) }}
+        >
+          {cat.kids.map((kid: FlowLeaf) => (
+            <FlowLeafRow key={kid.model} leaf={kid} onOpen={onOpen} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FlowLeafRow({
+  leaf,
+  onOpen,
+}: {
+  leaf: FlowLeaf
+  onOpen: (sampleId?: string) => void
+}) {
+  const interactive = !!leaf.sample
+  const Tag = interactive ? 'button' : 'div'
+  return (
+    <div className="relative">
+      {/* Stub from vertical guide into the leaf card */}
+      <div className="absolute -left-2.5 top-1/2 h-px w-2.5 bg-[var(--border)]" />
+      <Tag
+        type={interactive ? 'button' : undefined}
+        onClick={interactive ? () => void onOpen(leaf.sample) : undefined}
+        className={cn(
+          'group block w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2 text-left transition-colors',
+          interactive && 'hover:border-[var(--accent-hairline)] hover:bg-[var(--elev-1)] cursor-pointer',
+        )}
+      >
+        <div className="text-[12px] leading-snug text-[var(--text)]">{leaf.label}</div>
+        <code className="mt-1 block font-mono text-[10px] text-[var(--text-subtle)]">
+          {leaf.model}
+        </code>
+        {interactive && (
+          <div
+            className="mt-1.5 flex items-center gap-1 font-mono text-[9px] uppercase text-[var(--text-subtle)] group-hover:text-[var(--accent)]"
+            style={{ letterSpacing: '0.24em' }}
+          >
+            <ArrowUpRight size={9} strokeWidth={1.5} />
+            run sample
+          </div>
+        )}
+      </Tag>
+    </div>
   )
 }
 

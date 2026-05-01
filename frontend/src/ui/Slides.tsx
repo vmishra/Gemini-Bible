@@ -109,13 +109,25 @@ export function SlideShell({ children }: { children: ReactNode }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [hasNavigated, setHasNavigated] = useState(false)
 
-  // Enumerate slides on mount and whenever children change. We trigger
-  // a re-scan on a microtask so refs settle.
+  // Enumerate slides on mount and whenever children change.
   useEffect(() => {
     if (!ref.current) return
     const els = Array.from(ref.current.querySelectorAll<HTMLElement>('[data-slide]'))
     const next = els.map((el) => ({ id: el.id, name: el.dataset.name ?? '' }))
     setSlides(next)
+
+    // Honor #slide-id in the URL on first mount so deep links land on a
+    // specific slide. Useful for sharing and for headless screenshot tests.
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hashId = window.location.hash.slice(1)
+      const target = els.find((el) => el.id === hashId)
+      if (target) {
+        requestAnimationFrame(() => {
+          target.scrollIntoView({ behavior: 'auto', block: 'start' })
+          setHasNavigated(true)
+        })
+      }
+    }
   }, [children])
 
   // Track which slide intersects the viewport center.

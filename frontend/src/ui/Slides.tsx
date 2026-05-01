@@ -24,6 +24,50 @@ export function useSlideScrollRoot(): RefObject<HTMLElement> | null {
 }
 
 /**
+ * Hand-rolled IntersectionObserver hook scoped to the slide deck's scroll
+ * container. Replaces motion/react's useInView for code that needs to fire
+ * "this slide just entered the deck viewport" — motion's hook didn't honor
+ * the custom IntersectionObserver root in our setup, so animations all fired
+ * on mount instead of as the reader scrolled.
+ *
+ * Usage:
+ *   const ref = useRef<HTMLDivElement>(null)
+ *   const inView = useInScrollRoot(ref, { once: true, amount: 0.2 })
+ */
+export function useInScrollRoot<T extends Element>(
+  ref: RefObject<T | null>,
+  options: { once?: boolean; amount?: number } = {},
+): boolean {
+  const root = useSlideScrollRoot()
+  const [inView, setInView] = useState(false)
+  const { once = true, amount = 0 } = options
+
+  useEffect(() => {
+    const target = ref.current
+    if (!target) return
+    const rootEl = root?.current ?? null
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setInView(true)
+            if (once) observer.unobserve(entry.target)
+          } else if (!once) {
+            setInView(false)
+          }
+        }
+      },
+      { root: rootEl, threshold: amount },
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [ref, root, once, amount])
+
+  return inView
+}
+
+/**
  * Slide deck UX — turns a long scroll page into a paged, keyboard-navigated
  * presentation while keeping the section content untouched.
  *
@@ -187,9 +231,12 @@ export function Slide({
   className?: string
 }) {
   const prefersReducedMotion = useReducedMotion()
-  const root = useSlideScrollRoot()
+  const sectionRef = useRef<HTMLElement>(null)
+  const inView = useInScrollRoot(sectionRef, { once: true, amount: 0.18 })
+
   return (
     <section
+      ref={sectionRef}
       data-slide
       data-name={name}
       id={id}
@@ -204,16 +251,11 @@ export function Slide({
         children
       ) : (
         <motion.div
-          // Each slide fades up + slides in as it enters the deck's scroll
-          // container (NOT the document viewport — see ScrollContainerContext).
-          // Plays once per mount so back-and-forth nav doesn't retrigger.
-          initial={{ opacity: 0, y: 28 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{
-            once: true,
-            amount: 0.2,
-            root: (root ?? undefined) as React.RefObject<Element> | undefined,
-          }}
+          // Slide entrance — fades up + slides in when the section intersects
+          // the deck's scroll container. Triggered by useInScrollRoot which
+          // wires a real IntersectionObserver against the right root.
+          initial={{ opacity: 0, y: 32 }}
+          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
           transition={{ duration: 0.6, ease: [0.2, 0.7, 0.2, 1] }}
         >
           {children}

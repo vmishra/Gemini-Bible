@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, useInView, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { ArrowUpRight } from 'lucide-react'
 import {
   CAPABILITY_COLUMNS,
@@ -16,7 +16,7 @@ import {
   type ModelTier,
   type Supergroup,
 } from '../data/catalog'
-import { Slide, SlideShell, useSlideScrollRoot } from '../ui/Slides'
+import { Slide, SlideShell, useInScrollRoot } from '../ui/Slides'
 import {
   ACCESSED,
   BENCHMARK_TABLE,
@@ -667,12 +667,7 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
   const go = useRoute((s) => s.go)
   const reduced = useReducedMotion()
   const ref = useRef<HTMLDivElement>(null)
-  const slideRoot = useSlideScrollRoot()
-  const inView = useInView(ref, {
-    once: true,
-    amount: 0.15,
-    root: (slideRoot ?? undefined) as React.RefObject<Element> | undefined,
-  })
+  const inView = useInScrollRoot(ref, { once: true, amount: 0.15 })
 
   const sampleById = useMemo(() => {
     const m = new Map<string, Sample>()
@@ -790,12 +785,7 @@ function DecisionPanel({ samples }: { samples: Sample[] }) {
 function CapabilityMatrix() {
   const reduced = useReducedMotion()
   const ref = useRef<HTMLTableSectionElement>(null)
-  const slideRoot = useSlideScrollRoot()
-  const inView = useInView(ref, {
-    once: true,
-    amount: 0.2,
-    root: (slideRoot ?? undefined) as React.RefObject<Element> | undefined,
-  })
+  const inView = useInScrollRoot(ref, { once: true, amount: 0.15 })
 
   // Show the matrix for the families that have meaningful capability variation
   // — text and live. Image/video/embeddings have one inherent capability each
@@ -1264,12 +1254,7 @@ function SectionHeader({
 // 1. Generation jump — 2.5 → 3 across the family
 function GenerationJumpPanel() {
   const ref = useRef<HTMLUListElement>(null)
-  const slideRoot = useSlideScrollRoot()
-  const inView = useInView(ref, {
-    once: true,
-    amount: 0.2,
-    root: (slideRoot ?? undefined) as React.RefObject<Element> | undefined,
-  })
+  const inView = useInScrollRoot(ref, { once: true, amount: 0.15 })
   return (
     <section className="flex flex-col gap-5">
       <SectionHeader
@@ -1615,12 +1600,7 @@ function parseScore(s: string | null): number | null {
 function LongContextHonesty() {
   const reduced = useReducedMotion()
   const ref = useRef<HTMLUListElement>(null)
-  const root5 = useSlideScrollRoot()
-  const inView = useInView(ref, {
-    once: true,
-    amount: 0.2,
-    root: (root5 ?? undefined) as React.RefObject<Element> | undefined,
-  })
+  const inView = useInScrollRoot(ref, { once: true, amount: 0.15 })
 
   return (
     <section className="flex flex-col gap-5">

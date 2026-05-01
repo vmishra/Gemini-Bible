@@ -20,8 +20,6 @@ import {
   ACCESSED,
   BENCHMARK_TABLE,
   BENCHMARK_SOURCE,
-  BEST_PRACTICES,
-  BEST_PRACTICES_SOURCE,
   CACHE_BREAKEVEN,
   CACHE_SOURCE,
   FLASH_LITE_HIGHLIGHTS,
@@ -105,8 +103,18 @@ export function Home() {
         <FlashLitePanel />
       </Slide>
 
-      <Slide id="frontier" name="Frontier comparison">
-        <FrontierComparison />
+      <Slide id="frontier-reasoning" name="Frontier · reasoning + multimodal">
+        <FrontierComparison
+          groups={['reasoning', 'multimodal']}
+          partLabel="reasoning + multimodal"
+        />
+      </Slide>
+
+      <Slide id="frontier-agentic" name="Frontier · coding + agentic + long-context">
+        <FrontierComparison
+          groups={['coding', 'agentic', 'multilingual', 'long-context']}
+          partLabel="coding + agentic + long-context"
+        />
       </Slide>
 
       <Slide id="family-tree" name="Family tree">
@@ -149,10 +157,6 @@ export function Home() {
 
       <Slide id="grounding-migration" name="Grounding migration ROI">
         <GroundingMigration />
-      </Slide>
-
-      <Slide id="best-practices" name="Prompting best practices">
-        <BestPracticesPanel />
       </Slide>
 
       <Slide id="migration-ladder" name="Migration ladder">
@@ -1326,13 +1330,20 @@ function FlashLitePanel() {
   )
 }
 
-// 3. Frontier comparison — Gemini 3 Flash + 3 Pro vs Sonnet 4.5 vs GPT-5.2 vs Grok 4.1 Fast
-function FrontierComparison() {
-  const groups: BenchmarkRow['group'][] = ['reasoning', 'coding', 'multimodal', 'agentic', 'long-context']
+// 3. Frontier comparison — split across two slides so each fits a single viewport.
+//    Part A: reasoning + multimodal. Part B: coding + agentic + long-context.
+
+function FrontierComparison({
+  groups,
+  partLabel,
+}: {
+  groups: BenchmarkRow['group'][]
+  partLabel?: string
+}) {
   return (
     <section className="flex flex-col gap-5">
       <SectionHeader
-        kicker="frontier comparison"
+        kicker={partLabel ? `frontier · ${partLabel}` : 'frontier comparison'}
         title="Gemini 3 vs the rest, by group"
         blurb="The same evaluation table Google publishes in the 3 Flash model card. Showing all four frontier models, not just Gemini, so the win/loss pattern stays honest. Bold cell = leader in the row."
       />
@@ -1662,34 +1673,7 @@ function GroundingMigration() {
   )
 }
 
-// 9. Best-practice callouts (Gemini 3.x specific)
-function BestPracticesPanel() {
-  return (
-    <section className="flex flex-col gap-5">
-      <SectionHeader
-        kicker="prompting · gemini 3.x"
-        title="Five rules that contradict your old LLM heuristics"
-        blurb="Quoted from the official prompting guide. Each one is a load-bearing change — Gemini 3 is calibrated differently than 2.5 was, and several common 'best practices' (T=0, motivating prompts, instructions first) actively hurt this family."
-      />
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {BEST_PRACTICES.map((bp) => (
-          <Panel key={bp.title} className="flex flex-col gap-2">
-            <span
-              className="font-mono text-[10.5px] uppercase text-[var(--accent)]"
-              style={{ letterSpacing: '0.28em' }}
-            >
-              rule
-            </span>
-            <h3 className="text-[15px] font-medium leading-snug">{bp.title}</h3>
-            <p className="text-[13px] leading-relaxed text-[var(--text)]">{bp.rule}</p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{bp.reason}</p>
-          </Panel>
-        ))}
-      </div>
-      <SourceLine url={BEST_PRACTICES_SOURCE.url} label={BEST_PRACTICES_SOURCE.label} />
-    </section>
-  )
-}
+// (Best-practice panels moved to /practices route — see routes/Practices.tsx.)
 
 // Tiny helper used across the new panels.
 function Kicker({ children, className }: { children: React.ReactNode; className?: string }) {

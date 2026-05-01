@@ -194,6 +194,7 @@ function RunResultPanel() {
   const result = useRun((s) => s.result)
   if (!result) return null
   const m = result.metrics
+  const parsed = result.parsed
 
   return (
     <div className="flex flex-col gap-3">
@@ -209,6 +210,12 @@ function RunResultPanel() {
                 <span className="numeric">{m.total_ms?.toFixed(0) ?? '–'}</span>
                 <span className="text-[var(--text-subtle)]">ms</span>
               </Chip>
+              {m.ttft_ms != null && (
+                <Chip tone="neutral">
+                  <span className="numeric">{m.ttft_ms.toFixed(0)}</span>
+                  <span className="text-[var(--text-subtle)]">ms ttft</span>
+                </Chip>
+              )}
               {m.tokens_per_second != null && (
                 <Chip tone="neutral">
                   <span className="numeric">{m.tokens_per_second}</span>
@@ -219,15 +226,69 @@ function RunResultPanel() {
             </div>
           )}
         </div>
-        {result.parsed?.text ? (
+
+        {parsed?.text && (
           <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--text)]">
-            {result.parsed.text}
+            {parsed.text}
           </div>
-        ) : (
-          <pre className="overflow-x-auto font-mono text-[12.5px] text-[var(--text-muted)]">
-            <code>{result.stdout || result.stderr}</code>
-          </pre>
         )}
+
+        {parsed?.images && parsed.images.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {parsed.images.map((img, i) => (
+              <a
+                key={i}
+                href={`data:${img.mime_type};base64,${img.data_b64}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)]"
+              >
+                <img
+                  src={`data:${img.mime_type};base64,${img.data_b64}`}
+                  alt="generated"
+                  className="block h-auto w-full"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+
+        {parsed?.video && (
+          <video
+            controls
+            className="w-full rounded-[var(--radius-md)] border border-[var(--border)]"
+            src={`data:${parsed.video.mime_type};base64,${parsed.video.data_b64}`}
+          />
+        )}
+
+        {parsed?.vectors && parsed.vectors.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {parsed.vectors.map((v, i) => (
+              <div key={i} className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-raised)] p-3">
+                {parsed.snippets?.[i] && (
+                  <div className="mb-2 text-[12px] text-[var(--text-muted)]">{parsed.snippets[i]}</div>
+                )}
+                <div className="flex items-baseline gap-3">
+                  <span className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.18em' }}>
+                    dim {v.dimension}
+                  </span>
+                  <code className="numeric truncate font-mono text-[12px] text-[var(--text)]">
+                    [{v.preview.map((x) => x.toFixed(4)).join(', ')}, …]
+                  </code>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!parsed?.text &&
+          !parsed?.images?.length &&
+          !parsed?.video &&
+          !parsed?.vectors?.length && (
+            <pre className="overflow-x-auto font-mono text-[12.5px] text-[var(--text-muted)]">
+              <code>{result.stdout || result.stderr}</code>
+            </pre>
+          )}
       </Panel>
 
       {m && <UsagePanel m={m} />}

@@ -1,0 +1,29 @@
+{
+  "id": "video.veo",
+  "category": "video",
+  "scenario": "generation",
+  "title": "Video generation (Veo)",
+  "summary": "Generate a short video from a text prompt with Veo. The call returns a long-running operation; poll until done, then download the MP4 bytes.",
+  "models": [
+    "veo-3.1-generate-preview",
+    "veo-3.1-lite-generate-preview"
+  ],
+  "default_model": "veo-3.1-lite-generate-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Video generation — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/video" },
+    { "label": "Veo on Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/video/generate-videos" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "Generation typically takes 30–90 seconds. The runner caps execution at 5 minutes; raise the timeout if you need longer clips.",
+    "Veo 3.1 produces 8-second clips by default and is billed per-second of generated video, not per token. Cost charts in the run panel will show zero — refer to the pricing link.",
+    "For studio-grade output use veo-3.1-generate-preview; for cost-sensitive iteration use veo-3.1-lite-generate-preview."
+  ]
+}

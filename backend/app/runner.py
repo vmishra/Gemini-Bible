@@ -16,7 +16,7 @@ from pathlib import Path
 from .metrics import TurnMetrics
 from .registry import Sample, Variant
 
-DEFAULT_TIMEOUT_S = 120
+DEFAULT_TIMEOUT_S = 300  # Veo and other LROs can take ~90s; leave headroom.
 
 
 @dataclass

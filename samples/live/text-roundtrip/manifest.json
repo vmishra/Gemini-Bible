@@ -1,0 +1,30 @@
+{
+  "id": "live.text-roundtrip",
+  "category": "live",
+  "scenario": "text-roundtrip",
+  "title": "Live API — text round trip",
+  "summary": "Open a bidirectional Live session, send one text turn, accumulate the streamed text response, then close cleanly. The minimum-viable Live exchange before adding audio.",
+  "models": [
+    "gemini-3.1-flash-live-preview",
+    "gemini-2.5-flash-native-audio-preview-12-2025"
+  ],
+  "default_model": "gemini-3.1-flash-live-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Live API overview", "url": "https://ai.google.dev/gemini-api/docs/live" },
+    { "label": "Live API — Python SDK guide", "url": "https://ai.google.dev/gemini-api/docs/live-api/get-started-sdk" },
+    { "label": "Live API — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/live-api" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "client.aio.live.connect is async — the sample wraps it in asyncio.run for a one-shot demo.",
+    "response.server_content arrives in chunks; both model_turn.parts (structured) and output_transcription (audio→text) shapes appear depending on the active modality.",
+    "For voice agents add INPUT_AUDIO/OUTPUT_AUDIO modalities and stream PCM frames via send_realtime_input — Live samples for audio land separately."
+  ]
+}

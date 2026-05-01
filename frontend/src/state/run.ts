@@ -22,11 +22,27 @@ export type RunMetrics = {
   error: string | null
 }
 
+export type GeneratedImage = { mime_type: string; data_b64: string }
+export type GeneratedVideo = { mime_type: string; bytes: number; data_b64: string; path?: string }
+export type EmbeddingVector = { dimension: number; preview: number[] }
+
 export type RunResult = {
   ok: boolean
   stdout: string
   stderr: string
-  parsed: { text?: string; model?: string; finish_reason?: string | null; usage_metadata?: unknown } | null
+  parsed:
+    | {
+        text?: string | null
+        model?: string
+        finish_reason?: string | null
+        usage_metadata?: unknown
+        images?: GeneratedImage[]
+        video?: GeneratedVideo
+        vectors?: EmbeddingVector[]
+        snippets?: string[]
+        parsed?: unknown
+      }
+    | null
   exit_code: number
   metrics: RunMetrics | null
 }

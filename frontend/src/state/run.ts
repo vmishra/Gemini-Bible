@@ -83,3 +83,16 @@ export const useRun = create<State>((set) => ({
     }
   },
 }))
+
+// Substitute the sample's hard-coded default model literal with the user's
+// pick. Each sample contains exactly one occurrence of its default model
+// string (verified across the catalogue), so a single global replace is safe.
+export function renderSourceForModel(
+  src: string,
+  defaultModel: string,
+  chosenModel: string,
+): string {
+  if (!src || !defaultModel || !chosenModel || defaultModel === chosenModel) return src
+  const escaped = defaultModel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return src.replace(new RegExp(`(['"\`])${escaped}\\1`, 'g'), `$1${chosenModel}$1`)
+}

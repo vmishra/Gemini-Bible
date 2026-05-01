@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import Editor from '@monaco-editor/react'
+import { Check, Copy, ExternalLink, RotateCcw } from 'lucide-react'
 import { useAuth, type Surface } from '../state/auth'
 import { useSamples } from '../state/samples'
-import { useRun } from '../state/run'
+import { useRun, renderSourceForModel } from '../state/run'
+import { useTheme } from '../state/theme'
+import { usePricing, rateFor } from '../state/pricing'
+import { useMetrics, summarizeFor } from '../state/metricsStore'
 import { Button } from '../ui/components/Button'
 import { Chip } from '../ui/components/Chip'
 import { Panel } from '../ui/components/Panel'
@@ -36,12 +40,36 @@ export function Workspace() {
   }, [languagesForSurface, language])
 
   const variant = variants.find((v) => v.surface === surface && v.language === language)
-  const code = variant ? detail?.sources?.[`${variant.surface}:${variant.language}`] ?? '' : ''
+  const originalCode = variant ? detail?.sources?.[`${variant.surface}:${variant.language}`] ?? '' : ''
+
+  // The "rendered" baseline: original source with the chosen model literal
+  // swapped in. The user can edit further; edits override the baseline.
+  const renderedCode = useMemo(
+    () =>
+      detail && model
+        ? renderSourceForModel(originalCode, detail.default_model, model)
+        : originalCode,
+    [detail, model, originalCode],
+  )
+
+  const [editedCode, setEditedCode] = useState<string | null>(null)
+  // Reset edits whenever the underlying baseline changes (sample/surface/language/model).
+  useEffect(() => {
+    setEditedCode(null)
+  }, [detail?.id, surface, language, model])
+
+  const code = editedCode ?? renderedCode
+  const isEdited = editedCode !== null && editedCode !== renderedCode
 
   const surfaceAvailable = (s: Surface) =>
     s === 'ai-studio' ? !!auth?.ai_studio.available : !!auth?.vertex.available
 
   const run = useRun()
+
+  const refreshMetrics = useMetrics((s) => s.refresh)
+  useEffect(() => {
+    void refreshMetrics()
+  }, [refreshMetrics])
 
   const handleRun = async () => {
     if (!detail || !variant) return
@@ -51,7 +79,9 @@ export function Workspace() {
       language,
       model: model ?? undefined,
       prompt: prompt || undefined,
+      code_override: isEdited ? code : undefined,
     })
+    void refreshMetrics()
   }
 
   if (!detail) {
@@ -125,11 +155,19 @@ export function Workspace() {
             </select>
           </div>
 
-          <Panel pad={false} className="overflow-hidden">
-            <pre className="overflow-x-auto p-5 font-mono text-[12.5px] leading-[1.65] text-[var(--text)]">
-              <code>{code || '—'}</code>
-            </pre>
-          </Panel>
+          {model && detail && (
+            <ModelCard sampleId={detail.id} model={model} surface={surface} />
+          )}
+
+          <CodePanel
+            code={code}
+            path={variant?.file ?? null}
+            language={language}
+            edited={isEdited}
+            onChange={(next) => setEditedCode(next)}
+            onReset={() => setEditedCode(null)}
+          />
+
 
           <Panel className="flex flex-col gap-3">
             <label className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.28em' }}>
@@ -173,6 +211,243 @@ export function Workspace() {
         <ContextRail />
       </div>
     </section>
+  )
+}
+
+function ModelCard({
+  sampleId,
+  model,
+  surface,
+}: {
+  sampleId: string
+  model: string
+  surface: Surface
+}) {
+  const pricing = usePricing((s) => s.data)
+  const refreshPricing = usePricing((s) => s.refresh)
+  const pricingStatus = usePricing((s) => s.status)
+  const metrics = useMetrics((s) => s.data)
+
+  useEffect(() => {
+    if (pricingStatus === 'idle') void refreshPricing()
+  }, [pricingStatus, refreshPricing])
+
+  const rate = rateFor(pricing, model)
+  const live = summarizeFor(metrics, (r) => r.sample_id === sampleId && r.model === model)
+
+  return (
+    <Panel pad={false} className="overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[var(--border)]">
+        <section className="flex flex-col gap-3 p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span
+                className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                style={{ letterSpacing: '0.28em' }}
+              >
+                model
+              </span>
+              <span className="font-mono text-[14px] text-[var(--text)]">{model}</span>
+            </div>
+            <span
+              className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+              style={{ letterSpacing: '0.28em' }}
+            >
+              {surface}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <PriceCell label="input" value={rate?.input_per_mtok_usd} />
+            <PriceCell label="output" value={rate?.output_per_mtok_usd} />
+            <PriceCell label="cached input" value={rate?.cached_input_per_mtok_usd} />
+          </div>
+          {!rate && (
+            <span className="text-[12px] text-[var(--text-subtle)]">
+              no rate-card entry — verify against ai.google.dev/pricing
+            </span>
+          )}
+        </section>
+        <section className="flex flex-col gap-3 p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <span
+              className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+              style={{ letterSpacing: '0.28em' }}
+            >
+              recent runs · this sample · this model
+            </span>
+            <span className="numeric font-mono text-[10.5px] text-[var(--text-subtle)]">
+              n = {live.count}
+            </span>
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <MetricCell label="latency p50" value={live.latency_p50_ms} unit="ms" />
+            <MetricCell label="ttft p50" value={live.ttft_p50_ms} unit="ms" />
+            <MetricCell label="tokens" value={live.total_tokens} />
+            <MetricCell label="cost" value={live.total_cost_usd} prefix="$" precision={6} />
+          </div>
+        </section>
+      </div>
+    </Panel>
+  )
+}
+
+function PriceCell({ label, value }: { label: string; value: number | undefined }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+        style={{ letterSpacing: '0.18em' }}
+      >
+        {label}
+      </span>
+      <span className="numeric font-mono text-[14px] text-[var(--text)]">
+        {value != null ? `$${value.toFixed(2)}` : '–'}
+        <span className="ml-1 text-[10.5px] text-[var(--text-subtle)]">/ MTok</span>
+      </span>
+    </div>
+  )
+}
+
+function MetricCell({
+  label,
+  value,
+  unit,
+  prefix,
+  precision = 0,
+}: {
+  label: string
+  value: number | null
+  unit?: string
+  prefix?: string
+  precision?: number
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+        style={{ letterSpacing: '0.18em' }}
+      >
+        {label}
+      </span>
+      <span className="numeric font-mono text-[14px] text-[var(--text)]">
+        {value == null ? (
+          '–'
+        ) : (
+          <>
+            {prefix}
+            {precision > 0 ? value.toFixed(precision) : value.toLocaleString()}
+            {unit && <span className="ml-1 text-[10.5px] text-[var(--text-subtle)]">{unit}</span>}
+          </>
+        )}
+      </span>
+    </div>
+  )
+}
+
+type CodePanelProps = {
+  code: string
+  path: string | null
+  language: Lang
+  edited: boolean
+  onChange: (next: string) => void
+  onReset: () => void
+}
+
+const monacoLangByLanguage: Record<Lang, string> = {
+  python: 'python',
+  typescript: 'typescript',
+  java: 'java',
+}
+
+function CodePanel({ code, path, language, edited, onChange, onReset }: CodePanelProps) {
+  const [copied, setCopied] = useState(false)
+  const theme = useTheme((s) => s.theme)
+  const lineCount = useMemo(() => (code ? code.split('\n').length : 0), [code])
+
+  const handleCopy = async () => {
+    if (!code) return
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1200)
+    } catch {
+      /* clipboard not available — silent */
+    }
+  }
+
+  return (
+    <Panel pad={false} className="flex flex-col overflow-hidden">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--border)] px-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+            style={{ letterSpacing: '0.28em' }}
+          >
+            {language}
+          </span>
+          {path && (
+            <span className="font-mono text-[11px] text-[var(--text-muted)]">{path}</span>
+          )}
+          {edited && (
+            <span
+              className="font-mono text-[10px] uppercase text-[var(--accent)]"
+              style={{ letterSpacing: '0.2em' }}
+            >
+              edited
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="numeric font-mono text-[10.5px] text-[var(--text-subtle)]">
+            {lineCount} lines
+          </span>
+          {edited && (
+            <button
+              type="button"
+              aria-label="reset to original"
+              onClick={onReset}
+              className="flex h-6 items-center gap-1.5 rounded-[var(--radius-sm)] px-2 text-[11px] text-[var(--text-muted)] hover:bg-[var(--elev-2)] hover:text-[var(--text)] transition-colors"
+            >
+              <RotateCcw size={12} strokeWidth={1.5} />
+              reset
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="copy code"
+            onClick={handleCopy}
+            className="flex h-6 items-center gap-1.5 rounded-[var(--radius-sm)] px-2 text-[11px] text-[var(--text-muted)] hover:bg-[var(--elev-2)] hover:text-[var(--text)] transition-colors"
+          >
+            {copied ? <Check size={12} strokeWidth={1.5} /> : <Copy size={12} strokeWidth={1.5} />}
+            {copied ? 'copied' : 'copy'}
+          </button>
+        </div>
+      </div>
+      <div style={{ height: 'min(60vh, 560px)' }}>
+        <Editor
+          value={code}
+          language={monacoLangByLanguage[language]}
+          onChange={(v) => onChange(v ?? '')}
+          theme={theme === 'dark' ? 'vs-dark' : 'vs'}
+          options={{
+            fontSize: 12.5,
+            fontFamily: 'var(--font-mono), ui-monospace, monospace',
+            fontLigatures: true,
+            lineNumbers: 'on',
+            renderLineHighlight: 'none',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            smoothScrolling: true,
+            padding: { top: 12, bottom: 12 },
+            tabSize: 4,
+            automaticLayout: true,
+            wordWrap: 'on',
+            overviewRulerLanes: 0,
+            scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
+          }}
+        />
+      </div>
+    </Panel>
   )
 }
 

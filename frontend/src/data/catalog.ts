@@ -359,9 +359,72 @@ export const SUPERGROUPS: Supergroup[] = [
 export const HOME_SECTION_ORDER: string[] = [
   'text',
   'live',
-  'genmedia',          // supergroup containing image + video + music
+  'genmedia',          // supergroup containing image + video + music + speech
   'embeddings',
   'specialized',
+]
+
+/**
+ * Migration map — explicit "if you're on prior, switch to current". Hand-curated
+ * because the right migration target isn't always the closest name match
+ * (e.g. 2.5 Flash maps to 3 Flash, not 3.1 Flash anything). Each entry is
+ * defensible in a customer call.
+ */
+export type MigrationStep = {
+  from: string                     // model id
+  to: string                       // model id
+  rationale: string                // one line, technical and concrete
+}
+
+export const MIGRATIONS: MigrationStep[] = [
+  {
+    from: 'gemini-2.5-pro',
+    to: 'gemini-3.1-pro-preview',
+    rationale:
+      'Stronger reasoning at the same input price; output rate is half. Tool-fidelity and structured-output adherence both improved.',
+  },
+  {
+    from: 'gemini-2.5-flash',
+    to: 'gemini-3-flash-preview',
+    rationale:
+      'Same price, lower TTFT, better instruction following on long prompts. Direct drop-in for most workloads.',
+  },
+  {
+    from: 'gemini-2.5-flash-lite',
+    to: 'gemini-3.1-flash-lite-preview',
+    rationale:
+      'Same price tier, sharper extraction and routing accuracy. Migrate when you have a regression suite.',
+  },
+  {
+    from: 'gemini-2.5-flash-image',
+    to: 'gemini-3.1-flash-image-preview',
+    rationale:
+      'Same per-image fee. Sharper detail, better text rendering inside images, fewer artefacts on edits.',
+  },
+  {
+    from: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    to: 'gemini-3.1-flash-live-preview',
+    rationale:
+      'Lower turn-taking latency, better interruption handling. Voice profiles shifted — re-evaluate before flipping prod.',
+  },
+  {
+    from: 'gemini-2.5-pro-preview-tts',
+    to: 'gemini-3.1-flash-tts-preview',
+    rationale:
+      'Cheaper. Comparable single-speaker quality and stronger natural-language style control with inline tags.',
+  },
+  {
+    from: 'gemini-2.5-flash-preview-tts',
+    to: 'gemini-3.1-flash-tts-preview',
+    rationale:
+      'Same price, multi-speaker support, better adherence to inline style tags ([whispers], [excitedly]).',
+  },
+  {
+    from: 'gemini-embedding-001',
+    to: 'gemini-embedding-2',
+    rationale:
+      'Multimodal input (was text-only), higher retrieval quality at the same price. Drop the task_type parameter; fold the task into prompt text instead.',
+  },
 ]
 
 export const TIER_ORDER: ModelTier[] = ['flagship', 'workhorse', 'lite', 'prior', 'preview', 'experimental']

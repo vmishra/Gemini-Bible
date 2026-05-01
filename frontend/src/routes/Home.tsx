@@ -5,6 +5,7 @@ import {
   DECISIONS,
   FAMILIES,
   HOME_SECTION_ORDER,
+  MIGRATIONS,
   SUPERGROUPS,
   TIER_LABEL,
   TIER_ORDER,
@@ -66,9 +67,17 @@ export function Home() {
       <div className="flex flex-col gap-12 px-10 py-10">
         <DecisionPanel samples={samples} />
 
+        <FamilyTree />
+
         {renderSections(samplesByModel)}
 
         <CapabilityMatrix />
+
+        <ModalityMatrix />
+
+        <CostLadder />
+
+        <MigrationLadder />
 
 
         <footer className="mt-4 border-t border-[var(--border)] pt-8 text-[13px] text-[var(--text-subtle)]">
@@ -364,6 +373,145 @@ function ModalityRow({ label, items }: { label: string; items: string[] }) {
   )
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Family tree — ASCII-style hierarchy with prices on the leaves. Built from
+// the catalog data so it can't drift from the rest of the page.
+
+type TreeNode = {
+  label: string
+  detail?: string
+  children?: TreeNode[]
+  modelId?: string                 // leaf nodes carry a model id for pricing lookup
+}
+
+function buildFamilyTree(): TreeNode {
+  const familyById = new Map(FAMILIES.map((f) => [f.id, f]))
+  const familiesInSg = new Set(SUPERGROUPS.flatMap((sg) => sg.family_ids))
+
+  const familyNode = (f: ModelFamily): TreeNode => ({
+    label: f.label,
+    detail: f.kicker,
+    children: f.models.map((m) => ({
+      label: m.display,
+      detail: TIER_LABEL[m.tier],
+      modelId: m.id,
+    })),
+  })
+
+  const supergroupNode = (sg: Supergroup): TreeNode => ({
+    label: sg.label,
+    detail: sg.kicker,
+    children: sg.family_ids
+      .map((fid) => familyById.get(fid))
+      .filter((f): f is ModelFamily => !!f)
+      .map(familyNode),
+  })
+
+  const sgById = new Map(SUPERGROUPS.map((sg) => [sg.id, sg]))
+  const orderedChildren: TreeNode[] = []
+  for (const id of HOME_SECTION_ORDER) {
+    const sg = sgById.get(id)
+    if (sg) {
+      orderedChildren.push(supergroupNode(sg))
+      continue
+    }
+    const f = familyById.get(id)
+    if (f && !familiesInSg.has(f.id)) orderedChildren.push(familyNode(f))
+  }
+
+  return {
+    label: 'Gemini',
+    detail: 'Google’s generative AI family',
+    children: orderedChildren,
+  }
+}
+
+function FamilyTree() {
+  const pricing = usePricing((s) => s.data)
+  const root = useMemo(() => buildFamilyTree(), [])
+
+  const lines = useMemo(() => renderTree(root, pricing), [root, pricing])
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.36em' }}
+        >
+          family tree
+        </span>
+        <h2 className="text-[26px] font-medium leading-tight tracking-tight">
+          The lineage in one screen
+        </h2>
+        <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          Every model under a single root, organized as you'd draw it on a
+          whiteboard. Tier on the right; per-MTok input price where the model
+          is token-billed.
+        </p>
+      </div>
+      <Panel pad={false} className="overflow-hidden">
+        <pre className="overflow-x-auto px-6 py-5 font-mono text-[12.5px] leading-[1.6] text-[var(--text)]">
+          {lines.map((line, i) => (
+            <div key={i} className="flex justify-between gap-8 whitespace-pre">
+              <span className="shrink-0">
+                <span className="text-[var(--text-subtle)]">{line.prefix}</span>
+                <span className="text-[var(--text)]">{line.label}</span>
+                {line.detail && (
+                  <span className="ml-3 text-[var(--text-subtle)]">{line.detail}</span>
+                )}
+              </span>
+              {line.price && (
+                <span className="numeric shrink-0 text-[var(--text-muted)]">{line.price}</span>
+              )}
+            </div>
+          ))}
+        </pre>
+      </Panel>
+    </section>
+  )
+}
+
+type RenderedLine = { prefix: string; label: string; detail?: string; price?: string }
+
+function renderTree(
+  node: TreeNode,
+  pricing: ReturnType<typeof usePricing.getState>['data'],
+  prefix = '',
+  isLast = true,
+  isRoot = true,
+): RenderedLine[] {
+  const lines: RenderedLine[] = []
+  const own = isRoot ? '' : prefix + (isLast ? '└── ' : '├── ')
+
+  let price: string | undefined
+  if (node.modelId && pricing) {
+    let best = ''
+    for (const id of Object.keys(pricing.rate_card)) {
+      if (node.modelId.startsWith(id) && id.length > best.length) best = id
+    }
+    if (best) {
+      const r = pricing.rate_card[best]
+      price = `$${r.input_per_mtok_usd.toFixed(2)} / $${r.output_per_mtok_usd.toFixed(2)} / MTok`
+    } else {
+      price = 'asset-billed'
+    }
+  }
+
+  lines.push({ prefix: own, label: node.label, detail: node.detail, price })
+
+  if (node.children && node.children.length > 0) {
+    const childPrefix = isRoot ? '' : prefix + (isLast ? '    ' : '│   ')
+    node.children.forEach((child, i) => {
+      const last = i === node.children!.length - 1
+      lines.push(...renderTree(child, pricing, childPrefix, last, false))
+    })
+  }
+  return lines
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 function DecisionPanel({ samples }: { samples: Sample[] }) {
   const select = useSamples((s) => s.select)
   const go = useRoute((s) => s.go)
@@ -524,6 +672,328 @@ function CapabilityMatrix() {
     </section>
   )
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Modality matrix — input modalities × output modalities per model. A different
+// question than the capability matrix: who eats what, who emits what.
+
+const INPUT_MODS = ['text', 'image', 'audio', 'video', 'pdf'] as const
+const OUTPUT_MODS = ['text', 'image', 'audio', 'video', 'embedding'] as const
+
+function ModalityMatrix() {
+  const rows = useMemo(() => FAMILIES.flatMap((f) => f.models), [])
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.36em' }}
+        >
+          modalities
+        </span>
+        <h2 className="text-[26px] font-medium leading-tight tracking-tight">
+          What each model eats and emits
+        </h2>
+        <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          Input modalities on the left, output modalities on the right. Filled
+          discs mean the modality is supported natively; gaps mean route through
+          a different model in the family.
+        </p>
+      </div>
+      <Panel pad={false} className="overflow-x-auto">
+        <table className="min-w-full text-[12.5px]">
+          <thead>
+            <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)]">
+              <th
+                rowSpan={2}
+                className="sticky left-0 z-10 bg-[var(--surface-raised)] px-4 py-3 text-left font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                style={{ letterSpacing: '0.18em' }}
+              >
+                model
+              </th>
+              <th
+                colSpan={INPUT_MODS.length}
+                className="border-l border-[var(--border)] px-3 py-2 text-center font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                style={{ letterSpacing: '0.28em' }}
+              >
+                input
+              </th>
+              <th
+                colSpan={OUTPUT_MODS.length}
+                className="border-l border-[var(--border)] px-3 py-2 text-center font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                style={{ letterSpacing: '0.28em' }}
+              >
+                output
+              </th>
+            </tr>
+            <tr className="border-b border-[var(--border)] bg-[var(--surface-raised)]">
+              {INPUT_MODS.map((m, i) => (
+                <th
+                  key={`in-${m}`}
+                  className={
+                    'px-3 py-2 text-center font-mono text-[10px] uppercase text-[var(--text-subtle)]' +
+                    (i === 0 ? ' border-l border-[var(--border)]' : '')
+                  }
+                  style={{ letterSpacing: '0.18em' }}
+                >
+                  {m}
+                </th>
+              ))}
+              {OUTPUT_MODS.map((m, i) => (
+                <th
+                  key={`out-${m}`}
+                  className={
+                    'px-3 py-2 text-center font-mono text-[10px] uppercase text-[var(--text-subtle)]' +
+                    (i === 0 ? ' border-l border-[var(--border)]' : '')
+                  }
+                  style={{ letterSpacing: '0.18em' }}
+                >
+                  {m}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((m, i) => (
+              <tr
+                key={m.id}
+                className={i % 2 === 0 ? 'bg-transparent' : 'bg-[var(--surface-raised)]/40'}
+              >
+                <td className="sticky left-0 z-10 bg-inherit px-4 py-2.5">
+                  <div className="flex flex-col">
+                    <span className="text-[13px] text-[var(--text)]">{m.display}</span>
+                    <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">{m.id}</code>
+                  </div>
+                </td>
+                {INPUT_MODS.map((mod, idx) => {
+                  const has = m.modalities.input.includes(mod)
+                  return (
+                    <td
+                      key={`in-${mod}`}
+                      className={
+                        'px-3 py-2.5 text-center' +
+                        (idx === 0 ? ' border-l border-[var(--border)]' : '')
+                      }
+                    >
+                      <Mark on={has} tone="trace" />
+                    </td>
+                  )
+                })}
+                {OUTPUT_MODS.map((mod, idx) => {
+                  const has = m.modalities.output.includes(mod)
+                  return (
+                    <td
+                      key={`out-${mod}`}
+                      className={
+                        'px-3 py-2.5 text-center' +
+                        (idx === 0 ? ' border-l border-[var(--border)]' : '')
+                      }
+                    >
+                      <Mark on={has} tone="accent" />
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+    </section>
+  )
+}
+
+function Mark({ on, tone }: { on: boolean; tone: 'accent' | 'trace' }) {
+  if (!on) return <span className="font-mono text-[14px] text-[var(--text-subtle)]">–</span>
+  const color = tone === 'accent' ? 'var(--accent)' : 'var(--trace)'
+  return (
+    <span className="font-mono text-[14px]" style={{ color }} aria-label="supported">
+      ●
+    </span>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Cost ladder — sorted bar chart of input prices. Visual hierarchy of who's
+// cheap, who's mid, who's expensive. Output rate appears as a secondary line.
+
+function CostLadder() {
+  const pricing = usePricing((s) => s.data)
+
+  const rows = useMemo(() => {
+    const all = FAMILIES.flatMap((f) => f.models)
+    if (!pricing) return [] as { entry: ModelEntry; input: number; output: number }[]
+    const out: { entry: ModelEntry; input: number; output: number }[] = []
+    for (const entry of all) {
+      let best = ''
+      for (const id of Object.keys(pricing.rate_card)) {
+        if (entry.id.startsWith(id) && id.length > best.length) best = id
+      }
+      if (!best) continue
+      const r = pricing.rate_card[best]
+      out.push({ entry, input: r.input_per_mtok_usd, output: r.output_per_mtok_usd })
+    }
+    return out.sort((a, b) => a.input - b.input)
+  }, [pricing])
+
+  const maxInput = rows.length > 0 ? Math.max(...rows.map((r) => r.input)) : 1
+  const maxOutput = rows.length > 0 ? Math.max(...rows.map((r) => r.output)) : 1
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.36em' }}
+        >
+          cost ladder
+        </span>
+        <h2 className="text-[26px] font-medium leading-tight tracking-tight">
+          The price hierarchy at a glance
+        </h2>
+        <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          Sorted ascending by input price. Bars scale linearly within each
+          column; the output rate uses its own scale so the two stay comparable
+          across orders of magnitude. Asset-billed models (image, video, music)
+          are not in this view — their bulk cost is per-asset, not per-token.
+        </p>
+      </div>
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid grid-cols-[minmax(220px,1fr)_minmax(0,3fr)_minmax(0,3fr)] gap-4 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+            style={{ letterSpacing: '0.18em' }}
+          >
+            model
+          </span>
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+            style={{ letterSpacing: '0.18em' }}
+          >
+            input · $ / MTok
+          </span>
+          <span
+            className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+            style={{ letterSpacing: '0.18em' }}
+          >
+            output · $ / MTok
+          </span>
+        </div>
+        <ul>
+          {rows.map(({ entry, input, output }, i) => (
+            <li
+              key={entry.id}
+              className={
+                'grid grid-cols-[minmax(220px,1fr)_minmax(0,3fr)_minmax(0,3fr)] items-center gap-4 px-5 py-2.5' +
+                (i % 2 === 0 ? '' : ' bg-[var(--surface-raised)]/40')
+              }
+            >
+              <div className="flex flex-col">
+                <span className="text-[13px] text-[var(--text)]">{entry.display}</span>
+                <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">{entry.id}</code>
+              </div>
+              <Bar value={input} max={maxInput} tone="accent" />
+              <Bar value={output} max={maxOutput} tone="trace" />
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </section>
+  )
+}
+
+function Bar({ value, max, tone }: { value: number; max: number; tone: 'accent' | 'trace' }) {
+  const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0
+  const color =
+    tone === 'accent' ? 'var(--accent)' : 'var(--trace)'
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-1.5 flex-1 rounded-full bg-[var(--elev-2)]">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct}%`, background: color, opacity: 0.8 }}
+        />
+      </div>
+      <span className="numeric w-16 text-right font-mono text-[12px] text-[var(--text)]">
+        ${value.toFixed(2)}
+      </span>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Migration ladder — explicit prior → current with the rationale, hand curated.
+
+function MigrationLadder() {
+  return (
+    <section className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.36em' }}
+        >
+          migration
+        </span>
+        <h2 className="text-[26px] font-medium leading-tight tracking-tight">
+          From prior to current
+        </h2>
+        <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          Each row is a defensible jump — the price difference, capability
+          delta, and one-line caveat. Use this when a customer asks "what
+          should I migrate to" and you want to answer in a sentence.
+        </p>
+      </div>
+      <Panel pad={false} className="overflow-hidden">
+        <ul className="divide-y divide-[var(--border)]">
+          {MIGRATIONS.map((step) => {
+            const fromEntry = findModelEntry(step.from)
+            const toEntry = findModelEntry(step.to)
+            return (
+              <li
+                key={`${step.from}->${step.to}`}
+                className="grid grid-cols-1 gap-3 px-6 py-4 lg:grid-cols-[1.5fr_1.5fr_3fr]"
+              >
+                <div className="flex flex-col">
+                  <span
+                    className="font-mono text-[10px] uppercase text-[var(--text-subtle)]"
+                    style={{ letterSpacing: '0.28em' }}
+                  >
+                    from
+                  </span>
+                  <span className="text-[13px] text-[var(--text)]">
+                    {fromEntry?.display ?? step.from}
+                  </span>
+                  <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">
+                    {step.from}
+                  </code>
+                </div>
+                <div className="flex flex-col">
+                  <span
+                    className="font-mono text-[10px] uppercase text-[var(--accent)]"
+                    style={{ letterSpacing: '0.28em' }}
+                  >
+                    →  to
+                  </span>
+                  <span className="text-[13px] text-[var(--text)]">
+                    {toEntry?.display ?? step.to}
+                  </span>
+                  <code className="font-mono text-[10.5px] text-[var(--text-subtle)]">
+                    {step.to}
+                  </code>
+                </div>
+                <p className="text-[13px] leading-relaxed text-[var(--text-muted)] lg:border-l lg:border-[var(--border)] lg:pl-4">
+                  {step.rationale}
+                </p>
+              </li>
+            )
+          })}
+        </ul>
+      </Panel>
+    </section>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 function PriceFragment({ label, value }: { label: string; value: number }) {
   return (

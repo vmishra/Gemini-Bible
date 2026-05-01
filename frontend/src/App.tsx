@@ -8,6 +8,7 @@ import { Browser } from './routes/Browser'
 import { Workspace } from './routes/Workspace'
 import { Home } from './routes/Home'
 import { Practices } from './routes/Practices'
+import { Calculator } from './routes/Calculator'
 
 export function App() {
   const refreshAuth = useAuth((s) => s.refresh)
@@ -21,6 +22,7 @@ export function App() {
       <main className="flex flex-1 overflow-hidden">
         {route === 'home' && <HomeRouteShell refresh={[refreshAuth, refreshSamples, refreshPricing]} />}
         {route === 'practices' && <PracticesRouteShell />}
+        {route === 'calculator' && <CalculatorRouteShell refresh={[refreshPricing]} />}
         {route === 'samples' && <SamplesRouteShell refresh={[refreshAuth, refreshSamples, refreshPricing]} />}
       </main>
     </div>
@@ -37,6 +39,14 @@ function HomeRouteShell({ refresh }: { refresh: Array<() => Promise<void>> }) {
 
 function PracticesRouteShell() {
   return <Practices />
+}
+
+function CalculatorRouteShell({ refresh }: { refresh: Array<() => Promise<void>> }) {
+  useEffect(() => {
+    refresh.forEach((fn) => void fn())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return <Calculator />
 }
 
 function SamplesRouteShell({ refresh }: { refresh: Array<() => Promise<void>> }) {

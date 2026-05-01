@@ -45,6 +45,7 @@ export function Topbar() {
       <nav className="ml-2 flex items-center gap-0.5">
         <NavLink route="home" label="Home" />
         <NavLink route="practices" label="Practices" />
+        <NavLink route="calculator" label="Calculator" />
         <NavLink route="samples" label="Samples" />
       </nav>
 

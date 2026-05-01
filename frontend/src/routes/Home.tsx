@@ -15,6 +15,24 @@ import {
   type ModelTier,
   type Supergroup,
 } from '../data/catalog'
+import {
+  ACCESSED,
+  BENCHMARK_TABLE,
+  BENCHMARK_SOURCE,
+  BEST_PRACTICES,
+  BEST_PRACTICES_SOURCE,
+  CACHE_BREAKEVEN,
+  CACHE_SOURCE,
+  FLASH_VS_PRO,
+  GENERATION_JUMPS,
+  GROUNDING_MIGRATION,
+  LONG_CONTEXT,
+  LONG_CONTEXT_TIER,
+  MODALITY_TOKENS,
+  MODALITY_SOURCE,
+  PULL_QUOTES,
+  type BenchmarkRow,
+} from '../data/insights'
 import { useSamples, type Sample } from '../state/samples'
 import { useRoute } from '../state/route'
 import { usePricing, rateFor } from '../state/pricing'
@@ -68,6 +86,12 @@ export function Home() {
       <div className="flex flex-col gap-12 px-10 py-10">
         <DecisionPanel samples={samples} />
 
+        <GenerationJumpPanel />
+
+        <FlashVsProPanel />
+
+        <FrontierComparison />
+
         <FamilyTree />
 
         {renderSections(samplesByModel)}
@@ -76,7 +100,19 @@ export function Home() {
 
         <ModalityMatrix />
 
+        <LongContextHonesty />
+
         <CostLadder />
+
+        <ModalityTokenCosts />
+
+        <CacheBreakeven />
+
+        <LongContextTierPanel />
+
+        <GroundingMigration />
+
+        <BestPracticesPanel />
 
         <MigrationLadder />
 
@@ -1041,6 +1077,539 @@ function MigrationLadder() {
         </ul>
       </Panel>
     </section>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Insight panels — empirical, citation-backed. Data lives in src/data/insights.ts.
+
+function SourceLine({ url, label }: { url: string; label: string }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-subtle)]">
+      <span
+        className="font-mono uppercase"
+        style={{ letterSpacing: '0.18em' }}
+      >
+        source
+      </span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="text-[var(--text-muted)] underline-offset-4 hover:text-[var(--text)] hover:underline"
+      >
+        {label}
+      </a>
+      <span aria-hidden>·</span>
+      <span className="font-mono numeric">as of {ACCESSED}</span>
+    </div>
+  )
+}
+
+function SectionHeader({
+  kicker,
+  title,
+  blurb,
+}: {
+  kicker: string
+  title: string
+  blurb: string
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span
+        className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+        style={{ letterSpacing: '0.36em' }}
+      >
+        {kicker}
+      </span>
+      <h2 className="text-[26px] font-medium leading-tight tracking-tight">{title}</h2>
+      <p className="max-w-3xl text-[14px] leading-relaxed text-[var(--text-muted)]">{blurb}</p>
+    </div>
+  )
+}
+
+// 1. Generation jump — 2.5 → 3 across the family
+function GenerationJumpPanel() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="generation jump"
+        title="What 2.5 → 3 actually bought you"
+        blurb="Side-by-side scores on the same benchmarks across consecutive Gemini generations. The headline isn't 'better at MMLU' — it's order-of-magnitude jumps on agentic and tool-use evals where 2.5 was effectively zero."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid grid-cols-[2fr_minmax(60px,1fr)_minmax(60px,1fr)_minmax(60px,80px)_minmax(60px,80px)] gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+          <Kicker>benchmark</Kicker>
+          <Kicker>family</Kicker>
+          <Kicker className="text-right">2.5</Kicker>
+          <Kicker className="text-right">3 / 3.1</Kicker>
+          <Kicker className="text-right">delta</Kicker>
+        </div>
+        <ul>
+          {GENERATION_JUMPS.map((j, i) => (
+            <li
+              key={`${j.benchmark}-${j.family}`}
+              className={
+                'grid grid-cols-[2fr_minmax(60px,1fr)_minmax(60px,1fr)_minmax(60px,80px)_minmax(60px,80px)] items-center gap-3 px-5 py-2.5' +
+                (i % 2 === 1 ? ' bg-[var(--surface-raised)]/40' : '')
+              }
+            >
+              <span className="text-[13px] text-[var(--text)]">{j.benchmark}</span>
+              <span className="font-mono text-[11px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.18em' }}>
+                {j.family}
+              </span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">{j.before}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text)]">{j.after}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">{j.multiple_or_pct}</span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+      <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
+    </section>
+  )
+}
+
+// 2. Flash beats Pro — published comparison highlights
+function FlashVsProPanel() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="flash punches up"
+        title="Where Gemini 3 Flash matches or beats 3 Pro"
+        blurb="Pro is not a strict superset. On agentic coding, MCP tool use, and long-horizon tasks, Flash either ties or wins — at one-quarter the price. Treat 3 Flash as the default; reach for Pro on reasoning depth, hallucination resistance, and Vending-Bench-style coherence."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid grid-cols-[2fr_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)] gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+          <Kicker>benchmark</Kicker>
+          <Kicker className="text-right">3 Flash</Kicker>
+          <Kicker className="text-right">3 Pro</Kicker>
+          <Kicker className="text-right">flash − pro</Kicker>
+        </div>
+        <ul>
+          {FLASH_VS_PRO.map((row, i) => (
+            <li
+              key={row.benchmark}
+              className={
+                'grid grid-cols-[2fr_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)] items-center gap-3 px-5 py-2.5' +
+                (i % 2 === 1 ? ' bg-[var(--surface-raised)]/40' : '')
+              }
+            >
+              <span className="text-[13px] text-[var(--text)]">{row.benchmark}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text)]">{row.flash}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">{row.pro}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">{row.delta}</span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <PullQuote q={PULL_QUOTES.flash_throughput} />
+        <PullQuote q={PULL_QUOTES.flash_vs_pro_speed} />
+        <PullQuote q={PULL_QUOTES.flash_token_efficiency} />
+      </div>
+      <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
+    </section>
+  )
+}
+
+type PullQuoteData = (typeof PULL_QUOTES)[keyof typeof PULL_QUOTES]
+
+function PullQuote({ q }: { q: PullQuoteData }) {
+  return (
+    <Panel className="flex flex-col gap-2">
+      <p className="font-display text-[18px] leading-snug text-[var(--text)]" style={{ fontWeight: 500 }}>
+        {q.text}
+      </p>
+      <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">{q.context}</p>
+      <a
+        href={q.source}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-1 font-mono text-[10.5px] uppercase text-[var(--text-subtle)] hover:text-[var(--text-muted)]"
+        style={{ letterSpacing: '0.18em' }}
+      >
+        {q.label}
+      </a>
+    </Panel>
+  )
+}
+
+// 3. Frontier comparison — Gemini 3 Flash + 3 Pro vs Sonnet 4.5 vs GPT-5.2 vs Grok 4.1 Fast
+function FrontierComparison() {
+  const groups: BenchmarkRow['group'][] = ['reasoning', 'coding', 'multimodal', 'agentic', 'long-context']
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="frontier comparison"
+        title="Gemini 3 vs the rest, by group"
+        blurb="The same evaluation table Google publishes in the 3 Flash model card. Showing all four frontier models, not just Gemini, so the win/loss pattern stays honest. Bold cell = leader in the row."
+      />
+      {groups.map((group) => (
+        <FrontierGroup key={group} group={group} />
+      ))}
+      <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
+    </section>
+  )
+}
+
+function FrontierGroup({ group }: { group: BenchmarkRow['group'] }) {
+  const rows = useMemo(
+    () => BENCHMARK_TABLE.filter((r) => r.group === group),
+    [group],
+  )
+  return (
+    <Panel pad={false} className="overflow-hidden">
+      <div className="border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+        <span
+          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.28em' }}
+        >
+          {group}
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-[12.5px]">
+          <thead>
+            <tr className="border-b border-[var(--border)] text-left">
+              <th className="sticky left-0 bg-[var(--elev-1)] px-5 py-2.5 font-mono text-[10.5px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.18em' }}>
+                benchmark
+              </th>
+              {[
+                ['3 Flash', 'gemini_3_flash'],
+                ['3 Pro', 'gemini_3_pro'],
+                ['2.5 Flash', 'gemini_2_5_flash'],
+                ['2.5 Pro', 'gemini_2_5_pro'],
+                ['Sonnet 4.5', 'claude_sonnet_4_5'],
+                ['GPT-5.2', 'gpt_5_2'],
+                ['Grok 4.1', 'grok_4_1_fast'],
+              ].map(([label]) => (
+                <th
+                  key={label}
+                  className="px-3 py-2.5 text-right font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+                  style={{ letterSpacing: '0.18em' }}
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <FrontierRow row={row} alt={i % 2 === 1} key={row.benchmark} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  )
+}
+
+function FrontierRow({ row, alt }: { row: BenchmarkRow; alt: boolean }) {
+  const cells: Array<[string, keyof BenchmarkRow]> = [
+    ['gemini_3_flash', 'gemini_3_flash'],
+    ['gemini_3_pro', 'gemini_3_pro'],
+    ['gemini_2_5_flash', 'gemini_2_5_flash'],
+    ['gemini_2_5_pro', 'gemini_2_5_pro'],
+    ['claude_sonnet_4_5', 'claude_sonnet_4_5'],
+    ['gpt_5_2', 'gpt_5_2'],
+    ['grok_4_1_fast', 'grok_4_1_fast'],
+  ]
+  // Determine the leader cell to bold.
+  const leaderKey = useMemo(() => {
+    let best: { key: string; value: number } | null = null
+    for (const [, k] of cells) {
+      const raw = row[k] as string | null
+      const num = parseScore(raw)
+      if (num == null) continue
+      const cmp = row.higher_is_better ? num : -num
+      if (!best || cmp > best.value) best = { key: k as string, value: cmp }
+    }
+    return best?.key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row])
+
+  return (
+    <tr className={alt ? 'bg-[var(--surface-raised)]/40' : ''}>
+      <td className="sticky left-0 bg-inherit px-5 py-2.5">
+        <div className="flex flex-col">
+          <span className="text-[13px] text-[var(--text)]">{row.benchmark}</span>
+          <span className="text-[11.5px] text-[var(--text-subtle)]">
+            {row.description}
+            {row.note ? ` · ${row.note}` : ''}
+          </span>
+        </div>
+      </td>
+      {cells.map(([id, key]) => {
+        const value = (row[key] as string | null) ?? '–'
+        const isLeader = id === leaderKey
+        return (
+          <td
+            key={id}
+            className={
+              'numeric px-3 py-2.5 text-right font-mono text-[12.5px] ' +
+              (isLeader ? 'text-[var(--accent)] font-medium' : 'text-[var(--text-muted)]')
+            }
+          >
+            {value}
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
+function parseScore(s: string | null): number | null {
+  if (!s || s === 'n/s') return null
+  // Strip $, commas, percent — leave digits / decimal.
+  const cleaned = s.replace(/[\$,%\s]/g, '').replace(/Elo/i, '')
+  const n = parseFloat(cleaned)
+  return Number.isFinite(n) ? n : null
+}
+
+// 4. Long-context honesty — 128K vs 1M
+function LongContextHonesty() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="long-context reality check"
+        title="The 1M context window degrades. Stay under 200K."
+        blurb="MRCR v2 is Google's own multi-needle retrieval benchmark. At 128K input every Gemini 3 model holds above 60%; at 1M pointwise the same models drop into the 12–26% band. The window is real, the recall at depth is not. Architect for explicit retrieval over deep context."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+          <Kicker>model</Kicker>
+          <Kicker className="text-right">@ 128k</Kicker>
+          <Kicker className="text-right">@ 1m</Kicker>
+          <Kicker className="text-right">drop</Kicker>
+        </div>
+        <ul>
+          {LONG_CONTEXT.map((row, i) => {
+            const a = parseScore(row.at_128k) ?? 0
+            const b = parseScore(row.at_1m) ?? 0
+            const drop = a > 0 ? `${(((a - b) / a) * 100).toFixed(0)}%` : '–'
+            return (
+              <li
+                key={row.model}
+                className={
+                  'grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-3 px-5 py-2.5' +
+                  (i % 2 === 1 ? ' bg-[var(--surface-raised)]/40' : '')
+                }
+              >
+                <code className="font-mono text-[12.5px] text-[var(--text)]">{row.model}</code>
+                <span className="numeric text-right font-mono text-[12.5px] text-[var(--text)]">{row.at_128k}</span>
+                <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">{row.at_1m}</span>
+                <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">−{drop}</span>
+              </li>
+            )
+          })}
+        </ul>
+      </Panel>
+      <SourceLine url={BENCHMARK_SOURCE.url} label={BENCHMARK_SOURCE.label} />
+    </section>
+  )
+}
+
+// 5. Modality token costs
+function ModalityTokenCosts() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="modality math"
+        title="What an image, a minute of audio, and a minute of video actually cost"
+        blurb="Inputs are billed in tokens regardless of modality. The conversion factors are stable across the family — internalize them once, then estimate any cost back-of-envelope without a calculator."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid gap-px bg-[var(--border)]">
+          {MODALITY_TOKENS.map((row) => (
+            <div key={row.modality} className="grid grid-cols-[1.4fr_1.4fr_2.2fr] items-baseline gap-3 bg-[var(--elev-1)] px-5 py-3.5">
+              <span className="text-[13px] text-[var(--text)]">{row.modality}</span>
+              <span className="numeric font-mono text-[12.5px] text-[var(--text-muted)]">{row.equivalence}</span>
+              <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">{row.headline}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <SourceLine url={MODALITY_SOURCE.url} label={MODALITY_SOURCE.label} />
+    </section>
+  )
+}
+
+// 6. Cache break-even
+function CacheBreakeven() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="cache break-even"
+        title="When explicit caching pays off"
+        blurb="Cached input is ~90% off on Flash and ~84% off on Pro, but caches carry hourly storage fees ($1/MTok/hr Flash, $4.50/MTok/hr Pro). The break-even point — calls per TTL window after which the cache wins — depends on prefix size and tier. The default 1-hour TTL means most agentic loops hit break-even by the third call."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid grid-cols-[1.6fr_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)] gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+          <Kicker>model</Kicker>
+          <Kicker className="text-right">prefix</Kicker>
+          <Kicker className="text-right">no cache / call</Kicker>
+          <Kicker className="text-right">storage / hr</Kicker>
+          <Kicker className="text-right">cache / call</Kicker>
+          <Kicker className="text-right">break-even</Kicker>
+        </div>
+        <ul>
+          {CACHE_BREAKEVEN.map((row, i) => (
+            <li
+              key={row.model + row.prefix_tokens}
+              className={
+                'grid grid-cols-[1.6fr_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)] items-center gap-3 px-5 py-2.5' +
+                (i % 2 === 1 ? ' bg-[var(--surface-raised)]/40' : '')
+              }
+            >
+              <code className="truncate font-mono text-[12.5px] text-[var(--text)]">{row.model}</code>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">
+                {(row.prefix_tokens / 1000).toFixed(0)}k
+              </span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">
+                ${row.no_cache_per_call_usd.toFixed(4)}
+              </span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">
+                ${row.cache_storage_usd.toFixed(3)}
+              </span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text)]">
+                ${row.cache_per_call_usd.toFixed(4)}
+              </span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">
+                {row.break_even_calls} calls
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+      <SourceLine url={CACHE_SOURCE.url} label={CACHE_SOURCE.label} />
+    </section>
+  )
+}
+
+// 7. Long-context tier pricing boundary
+function LongContextTierPanel() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="200k tier boundary"
+        title="Pro models double input rates above 200K tokens"
+        blurb="The Pro family carries a long-context tier. Cross 200K on a single call and your input rate doubles, output goes up 50%. Combined with the MRCR-v2 degradation above 200K, this is a hard architectural ceiling — chunk + retrieve, don't dump."
+      />
+      <Panel pad={false} className="overflow-hidden">
+        <div className="grid grid-cols-[2fr_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)] gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)] px-5 py-3">
+          <Kicker>model</Kicker>
+          <Kicker className="text-right">input ≤200k</Kicker>
+          <Kicker className="text-right">input &gt;200k</Kicker>
+          <Kicker className="text-right">output ≤200k</Kicker>
+          <Kicker className="text-right">output &gt;200k</Kicker>
+        </div>
+        <ul>
+          {LONG_CONTEXT_TIER.map((row, i) => (
+            <li
+              key={row.model}
+              className={
+                'grid grid-cols-[2fr_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)_minmax(80px,1fr)] items-center gap-3 px-5 py-2.5' +
+                (i % 2 === 1 ? ' bg-[var(--surface-raised)]/40' : '')
+              }
+            >
+              <code className="font-mono text-[12.5px] text-[var(--text)]">{row.model}</code>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">${row.input_below.toFixed(2)}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">${row.input_above.toFixed(2)}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--text-muted)]">${row.output_below.toFixed(2)}</span>
+              <span className="numeric text-right font-mono text-[12.5px] text-[var(--accent)]">${row.output_above.toFixed(2)}</span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+      <SourceLine url="https://ai.google.dev/pricing" label="Gemini API pricing" />
+    </section>
+  )
+}
+
+// 8. Grounding migration ROI
+function GroundingMigration() {
+  const m = GROUNDING_MIGRATION
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="quiet win on migration"
+        title="Grounded search and maps got 60% cheaper from 2.5 → 3.x"
+        blurb="One of the less-advertised migration wins: per-1K grounding queries dropped from $35 (Search) and $25 (Maps) on the 2.5 family to a flat $14 on 3.x. A search-grounded RAG product with 100K queries/month moves from $3,500 to $1,400 in grounding fees alone."
+      />
+      <Panel className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <Kicker>before · 2.5 family</Kicker>
+          <p className="numeric font-mono text-[18px] text-[var(--text-muted)]">
+            ${m.before.search} <span className="text-[12px] text-[var(--text-subtle)]">/ 1K Search</span>
+          </p>
+          <p className="numeric font-mono text-[18px] text-[var(--text-muted)]">
+            ${m.before.maps} <span className="text-[12px] text-[var(--text-subtle)]">/ 1K Maps</span>
+          </p>
+          <p className="text-[12px] text-[var(--text-subtle)]">
+            free tier: {m.before.free_search_rpd.toLocaleString()} Search RPD,{' '}
+            {m.before.free_maps_rpd.toLocaleString()} Maps RPD (Pro)
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Kicker>after · 3.x family</Kicker>
+          <p className="numeric font-mono text-[18px] text-[var(--accent)]">
+            ${m.after.search} <span className="text-[12px] text-[var(--text-subtle)]">/ 1K Search & Maps</span>
+          </p>
+          <p className="text-[12px] text-[var(--text-subtle)]">
+            free tier: {m.after.free_per_month.toLocaleString()} prompts / month
+          </p>
+          <p className="numeric mt-2 font-mono text-[14px] text-[var(--text)]">
+            −{m.savings_pct_search}% Search · −{m.savings_pct_maps}% Maps
+          </p>
+        </div>
+      </Panel>
+      <SourceLine url="https://ai.google.dev/pricing" label="Gemini API pricing" />
+    </section>
+  )
+}
+
+// 9. Best-practice callouts (Gemini 3.x specific)
+function BestPracticesPanel() {
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader
+        kicker="prompting · gemini 3.x"
+        title="Five rules that contradict your old LLM heuristics"
+        blurb="Quoted from the official prompting guide. Each one is a load-bearing change — Gemini 3 is calibrated differently than 2.5 was, and several common 'best practices' (T=0, motivating prompts, instructions first) actively hurt this family."
+      />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {BEST_PRACTICES.map((bp) => (
+          <Panel key={bp.title} className="flex flex-col gap-2">
+            <span
+              className="font-mono text-[10.5px] uppercase text-[var(--accent)]"
+              style={{ letterSpacing: '0.28em' }}
+            >
+              rule
+            </span>
+            <h3 className="text-[15px] font-medium leading-snug">{bp.title}</h3>
+            <p className="text-[13px] leading-relaxed text-[var(--text)]">{bp.rule}</p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{bp.reason}</p>
+          </Panel>
+        ))}
+      </div>
+      <SourceLine url={BEST_PRACTICES_SOURCE.url} label={BEST_PRACTICES_SOURCE.label} />
+    </section>
+  )
+}
+
+// Tiny helper used across the new panels.
+function Kicker({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      className={
+        'font-mono text-[10.5px] uppercase text-[var(--text-subtle)] ' + (className ?? '')
+      }
+      style={{ letterSpacing: '0.18em' }}
+    >
+      {children}
+    </span>
   )
 }
 

@@ -1,37 +1,26 @@
+import { useEffect } from 'react'
+import { useAuth } from './state/auth'
+import { useSamples } from './state/samples'
+import { Topbar } from './ui/layout/Topbar'
+import { Browser } from './routes/Browser'
+import { Workspace } from './routes/Workspace'
+
 export function App() {
+  const refreshAuth = useAuth((s) => s.refresh)
+  const refreshSamples = useSamples((s) => s.refresh)
+
+  useEffect(() => {
+    void refreshAuth()
+    void refreshSamples()
+  }, [refreshAuth, refreshSamples])
+
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="flex flex-col items-center gap-10 text-center">
-        <span
-          className="text-[10.5px] font-medium uppercase text-[var(--text-subtle)] font-mono"
-          style={{ letterSpacing: '0.36em' }}
-        >
-          a runnable reference
-        </span>
-        <h1
-          className="font-display text-[88px] leading-none"
-          style={{ fontWeight: 500 }}
-        >
-          Gemini Bible
-        </h1>
-        <p className="font-display italic text-[17px] text-[var(--text-muted)]">
-          Every API. Every surface. One screen.
-        </p>
-        <div
-          aria-hidden
-          className="h-px w-60"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent, var(--accent-hairline) 20%, var(--accent-hairline) 80%, transparent)',
-          }}
-        />
-        <span
-          className="text-[10.5px] font-medium uppercase text-[var(--text-subtle)] font-mono"
-          style={{ letterSpacing: '0.28em' }}
-        >
-          text · live · image · video · embeddings
-        </span>
-      </div>
-    </main>
+    <div className="flex h-screen flex-col bg-[var(--surface)] text-[var(--text)]">
+      <Topbar />
+      <main className="flex flex-1 overflow-hidden">
+        <Browser />
+        <Workspace />
+      </main>
+    </div>
   )
 }

@@ -18,41 +18,34 @@ export function Topbar() {
 
   return (
     <header
-      className="flex h-14 shrink-0 items-center gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-5"
+      className="flex h-14 shrink-0 items-center gap-5 border-b border-[var(--border)] bg-[var(--surface)] px-5"
       style={{ position: 'relative' }}
     >
       <button
         type="button"
         onClick={() => useRoute.getState().go('home')}
-        className="flex items-center gap-2.5"
+        className="group flex items-center gap-2"
         aria-label="Gemini Bible — home"
       >
-        <img
-          src="/brand/gemini-mark.png"
-          alt=""
-          aria-hidden="true"
-          className="h-5 w-auto select-none"
-          draggable={false}
-        />
+        <SparkMark />
         <span
-          aria-hidden
-          className="h-4 w-px bg-[var(--border)]"
-        />
-        <span className="font-display text-[18px] leading-none" style={{ fontWeight: 500 }}>
+          className="font-display text-[19px] leading-none tracking-[-0.005em]"
+          style={{ fontWeight: 500 }}
+        >
           Gemini Bible
         </span>
         <span
-          className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
-          style={{ letterSpacing: '0.28em' }}
+          className="numeric ml-1 font-mono text-[10px] text-[var(--text-subtle)]"
+          style={{ letterSpacing: '0.18em' }}
         >
           v0.1
         </span>
       </button>
 
-      <nav className="ml-6 flex items-center gap-1">
-        <NavLink route="home" label="home" />
-        <NavLink route="practices" label="practices" />
-        <NavLink route="samples" label="samples" />
+      <nav className="ml-2 flex items-center gap-0.5">
+        <NavLink route="home" label="Home" />
+        <NavLink route="practices" label="Practices" />
+        <NavLink route="samples" label="Samples" />
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
@@ -86,6 +79,31 @@ export function Topbar() {
   )
 }
 
+/**
+ * Inline SVG of a 4-pointed concave star — the Gemini-style spark mark,
+ * vector + theme-aware. Replaces the previous PNG thumbnail which
+ * rasterized poorly at 20 px and read as a pasted-in screenshot rather
+ * than part of our design language.
+ */
+function SparkMark() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className="shrink-0 transition-transform duration-200 group-hover:rotate-90"
+      style={{ color: 'var(--accent)' }}
+    >
+      <path
+        d="M12 2 C12 7 8 11 2 12 C8 13 12 17 12 22 C12 17 16 13 22 12 C16 11 12 7 12 2 Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
 function NavLink({ route, label }: { route: Route; label: string }) {
   const current = useRoute((s) => s.route)
   const go = useRoute((s) => s.go)
@@ -95,13 +113,22 @@ function NavLink({ route, label }: { route: Route; label: string }) {
       type="button"
       onClick={() => go(route)}
       className={cn(
-        'rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
+        'relative rounded-[var(--radius-sm)] px-3 py-1.5 text-[13.5px] transition-colors',
         active
-          ? 'bg-[var(--elev-1)] text-[var(--text)]'
-          : 'text-[var(--text-muted)] hover:bg-[var(--elev-1)] hover:text-[var(--text)]',
+          ? 'text-[var(--text)]'
+          : 'text-[var(--text-muted)] hover:text-[var(--text)]',
       )}
     >
       {label}
+      <span
+        aria-hidden
+        className={cn(
+          'absolute inset-x-3 -bottom-[1px] h-[2px] rounded-full transition-all duration-200',
+          active
+            ? 'bg-[var(--accent)] opacity-100'
+            : 'bg-[var(--text-muted)] opacity-0 group-hover:opacity-40',
+        )}
+      />
     </button>
   )
 }

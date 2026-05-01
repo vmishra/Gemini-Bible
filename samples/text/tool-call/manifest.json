@@ -1,0 +1,31 @@
+{
+  "id": "text.tool-call",
+  "category": "text",
+  "scenario": "tool-call",
+  "title": "Function calling (tools)",
+  "summary": "Pass Python functions directly as tools — the SDK auto-declares them from type hints and docstrings, runs the round-trip, and returns the final natural-language answer.",
+  "models": [
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "default_model": "gemini-3-flash-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Function calling — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/function-calling" },
+    { "label": "Function calling — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "Automatic function calling is on by default — disable it with AutomaticFunctionCallingConfig(disable=True) when you want to inspect and execute calls yourself.",
+    "Type hints + docstrings are the schema. Keep docstrings imperative (\"Get the current temperature ...\") — the model uses them to decide when to call.",
+    "Multi-step tool plans are common — the response carries the *final* text after all tool turns; per-call tokens roll up in usage_metadata."
+  ]
+}

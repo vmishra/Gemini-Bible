@@ -1,0 +1,30 @@
+{
+  "id": "text.context-cache",
+  "category": "text",
+  "scenario": "context-cache",
+  "title": "Explicit context caching",
+  "summary": "Pre-cache a large prefix and reference it by name on subsequent calls. Cached prompt tokens bill at roughly 25% of the input rate.",
+  "models": [
+    "gemini-3-flash-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "default_model": "gemini-3-flash-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Context caching — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/caching" },
+    { "label": "Context caching — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/context-cache/context-cache-overview" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "Caches have a minimum prefix size — typically 2,048 tokens on Flash and 4,096 on Pro. Below that the API rejects creation; the sample inlines a long-enough body.",
+    "ttl defaults to one hour; bill it for the duration you keep it alive even if unused.",
+    "For shorter, opportunistic reuse, implicit caching kicks in automatically when a prefix repeats — see cached_content_token_count without ever calling caches.create."
+  ]
+}

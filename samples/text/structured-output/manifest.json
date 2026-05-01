@@ -1,0 +1,32 @@
+{
+  "id": "text.structured-output",
+  "category": "text",
+  "scenario": "structured-output",
+  "title": "Structured output (JSON schema)",
+  "summary": "Constrain the model to return JSON matching a Pydantic schema. The SDK validates the response against the schema before returning.",
+  "models": [
+    "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash"
+  ],
+  "default_model": "gemini-3-flash-preview",
+  "variants": [
+    { "surface": "ai-studio", "language": "python", "file": "python/ai_studio.py", "entry": "main" },
+    { "surface": "vertex", "language": "python", "file": "python/vertex.py", "entry": "main" }
+  ],
+  "docs": [
+    { "label": "Structured output — Gemini API", "url": "https://ai.google.dev/gemini-api/docs/structured-output" },
+    { "label": "Controlled generation — Vertex AI", "url": "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/control-generated-output" }
+  ],
+  "pricing": [
+    { "label": "Gemini API pricing", "url": "https://ai.google.dev/pricing" },
+    { "label": "Vertex AI pricing", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing" }
+  ],
+  "notes": [
+    "response_mime_type='application/json' is required alongside response_json_schema.",
+    "Pydantic Field(description=...) is forwarded to the model as inline guidance for each field — use it.",
+    "For enum-like fields use typing.Literal in the Pydantic model; the SDK lowers it to a JSON schema enum."
+  ]
+}

@@ -230,9 +230,13 @@ export function Slide({
   full?: boolean
   className?: string
 }) {
-  const prefersReducedMotion = useReducedMotion()
+  const reduced = useReducedMotion()
   const sectionRef = useRef<HTMLElement>(null)
   const inView = useInScrollRoot(sectionRef, { once: true, amount: 0.18 })
+
+  // Even with prefers-reduced-motion enabled, a quick opacity fade (no
+  // movement) is acceptable per WCAG. Hard movement is gated.
+  const yDistance = reduced ? 0 : 56
 
   return (
     <section
@@ -241,26 +245,36 @@ export function Slide({
       data-name={name}
       id={id}
       className={cn(
-        'flex flex-col justify-start px-10 py-16',
+        'relative flex flex-col justify-start px-10 py-16',
         full ? 'min-h-screen' : '',
         className,
       )}
       style={{ scrollSnapAlign: 'start' }}
     >
-      {prefersReducedMotion ? (
-        children
-      ) : (
+      {/* Sweeping accent hairline along the top of the slide — fires once when
+          the slide enters. Unmissable confirmation that motion is alive. */}
+      {!reduced && (
         <motion.div
-          // Slide entrance — fades up + slides in when the section intersects
-          // the deck's scroll container. Triggered by useInScrollRoot which
-          // wires a real IntersectionObserver against the right root.
-          initial={{ opacity: 0, y: 32 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 32 }}
-          transition={{ duration: 0.6, ease: [0.2, 0.7, 0.2, 1] }}
-        >
-          {children}
-        </motion.div>
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px] origin-left"
+          style={{ background: 'var(--accent)' }}
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={inView ? { scaleX: 1, opacity: 0.8 } : { scaleX: 0, opacity: 0 }}
+          transition={{
+            scaleX: { duration: 0.7, ease: [0.2, 0.7, 0.2, 1] },
+            opacity: { duration: 0.3 },
+          }}
+        />
       )}
+      <motion.div
+        // Slide entrance — fades up + slides in when the section intersects
+        // the deck's scroll container.
+        initial={{ opacity: 0, y: yDistance }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: yDistance }}
+        transition={{ duration: 0.7, ease: [0.2, 0.7, 0.2, 1] }}
+      >
+        {children}
+      </motion.div>
     </section>
   )
 }

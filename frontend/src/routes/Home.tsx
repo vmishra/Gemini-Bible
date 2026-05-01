@@ -73,9 +73,11 @@ export function Home() {
           The Gemini lineup, the way you actually pick a model.
         </h1>
         <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-[var(--text-muted)]">
-          One page per family. Pricing pulled live from the rate card. Benchmarks
-          lifted from official model cards. When-to-use copy for engineers who
-          have already read the docs and need a decision, not a tour.
+          Models, prices, benchmarks. Sourced from the Gemini docs and the
+          DeepMind model cards, every number cited.{' '}
+          <span className="numeric font-mono text-[14px] text-[var(--text-subtle)]">
+            Snapshot {ACCESSED}.
+          </span>
         </p>
         <div
           aria-hidden

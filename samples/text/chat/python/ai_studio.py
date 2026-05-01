@@ -7,14 +7,49 @@ Auth:    GEMINI_API_KEY in the environment.
 The Chat object holds the message history between calls. Each
 send_message issues one model call against the full accumulated
 history, so per-turn input_tokens grows with the conversation length.
+
+Thinking
+--------
+Gemini 3.x and 2.5 generate internal reasoning tokens by default.
+Pricing-wise, those tokens land at the *output* rate, so the level
+matters. The two families take different knobs:
+
+  Gemini 3.x   thinking_level ∈ {"minimal", "low", "medium", "high"}
+                Default is "high". Pick "medium" or "low" to cap reasoning
+                cost on chat-style turns; "minimal" disables on Flash.
+  Gemini 2.5   thinking_budget — integer token cap, -1 enables dynamic
+                thinking (default), 0 disables on Flash.
+
+We pass an explicit `thinking_config` on `chats.create` so the knob
+is visible to readers — the same config carries across every
+send_message in the session.
 """
 
 from google import genai
+from google.genai import types
 
 
-def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> dict:
+def _thinking_config(model: str, level: str) -> types.ThinkingConfig:
+    """Pick the right thinking knob for the model family."""
+    if model.startswith("gemini-3"):
+        return types.ThinkingConfig(thinking_level=level)
+    # Gemini 2.5 family: use the integer budget instead of the level enum.
+    # -1 lets the model decide dynamically; 0 disables on Flash.
+    return types.ThinkingConfig(thinking_budget=-1)
+
+
+def main(
+    model: str = "gemini-3-flash-preview",
+    prompt: str | None = None,
+    thinking_level: str = "medium",
+) -> dict:
     client = genai.Client()
-    chat = client.chats.create(model=model)
+    chat = client.chats.create(
+        model=model,
+        config=types.GenerateContentConfig(
+            thinking_config=_thinking_config(model, thinking_level),
+        ),
+    )
 
     turns: list[dict] = []
     aggregated = {
@@ -47,6 +82,8 @@ def main(model: str = "gemini-3-flash-preview", prompt: str | None = None) -> di
     return {
         "text": last_response.text if last_response else "",
         "model": model,
+        "thinking_knob": "thinking_level" if model.startswith("gemini-3") else "thinking_budget",
+        "thinking_value": thinking_level if model.startswith("gemini-3") else -1,
         "turns": turns,
         # Aggregated across the conversation — these are the tokens you actually billed for.
         "usage_metadata": aggregated,

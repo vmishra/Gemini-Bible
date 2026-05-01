@@ -27,6 +27,7 @@
   "notes": [
     "Each turn re-sends the entire history — input tokens grow O(n) with conversation length.",
     "For long sessions, pair with explicit context caching (see text.context-cache) to discount the prefix.",
+    "Thinking is on by default. Gemini 3.x defaults to thinking_level='high' — the most expensive setting; we pass thinking_level='medium' explicitly so the knob is visible. Gemini 2.5 takes thinking_budget (int) instead, -1 = dynamic (default), 0 = off on Flash.",
     "When migrating between Gemini versions, role/parts shape is stable but tool-call wrapping inside parts has shifted; re-test multi-turn flows with tools after a model bump."
   ]
 }

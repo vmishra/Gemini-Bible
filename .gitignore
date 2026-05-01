@@ -44,3 +44,6 @@ Thumbs.db
 
 # Runtime state from scripts/start.sh
 .run/
+
+# Local Claude Code skills (project-scoped, personal)
+.claude/skills/

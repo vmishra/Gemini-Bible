@@ -129,6 +129,8 @@ def pricing() -> dict:
             "cached_input_per_mtok_usd": rate.cached_input_per_mtok,
             "audio_input_per_mtok_usd": rate.audio_input_per_mtok,
             "cached_audio_per_mtok_usd": rate.cached_audio_per_mtok,
+            "image_input_per_mtok_usd": rate.image_input_per_mtok,
+            "video_input_per_mtok_usd": rate.video_input_per_mtok,
             "long_context_threshold_tokens": rate.long_context_threshold_tokens,
             "long_context_input_per_mtok_usd": rate.long_context_input_per_mtok,
             "long_context_output_per_mtok_usd": rate.long_context_output_per_mtok,

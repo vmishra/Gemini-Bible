@@ -57,11 +57,13 @@ class Rate:
     "approximately" — every number on the row is a literal.
     """
 
-    input_per_mtok: float                                 # text / image / video input
+    input_per_mtok: float                                 # text input (also covers image/video on most models)
     output_per_mtok: float
     cached_input_per_mtok: float | None = None            # explicit + implicit cache hits
     audio_input_per_mtok: float | None = None             # when audio is priced separately
     cached_audio_per_mtok: float | None = None
+    image_input_per_mtok: float | None = None             # when image input is priced separately (embedding models)
+    video_input_per_mtok: float | None = None             # when video input is priced separately (embedding models)
     long_context_threshold_tokens: int | None = None      # input above this triggers elevated tier
     long_context_input_per_mtok: float | None = None      # tier-2 input rate
     long_context_output_per_mtok: float | None = None     # tier-2 output rate
@@ -171,10 +173,11 @@ _PRICES: dict[str, Rate] = {
     # Embeddings — output rate is zero in the per-MTok sense; the embedding
     # response carries a vector, not output tokens.
     "gemini-embedding-2": Rate(
-        input_per_mtok=0.20,
+        input_per_mtok=0.20,                              # text
         output_per_mtok=0.0,
-        audio_input_per_mtok=6.50,
-        notes="Image $0.45/MTok ($0.00012/image); video $12/MTok ($0.00079/frame).",
+        audio_input_per_mtok=6.50,                        # ≈ $0.00016 / sec
+        image_input_per_mtok=0.45,                        # ≈ $0.00012 / image
+        video_input_per_mtok=12.00,                       # ≈ $0.00079 / frame
     ),
     "gemini-embedding-001": Rate(
         input_per_mtok=0.15,
@@ -182,24 +185,37 @@ _PRICES: dict[str, Rate] = {
         notes="Batch input: $0.075/MTok.",
     ),
     # ─── Asset-billed image and video ──────────────────────────────────────
-    # The per-MTok tuple captures only the text-prompt input cost; the
-    # bulk of the bill is the per-asset fee surfaced via _ASSET_NOTES.
+    # For Nano Banana the text-prompt input is token-billed at the rate below;
+    # the per-image fee is surfaced via _ASSET_NOTES. Veo and Imagen are
+    # *purely* per-asset: ai.google.dev/pricing publishes no per-token input
+    # rate for either, so we set both rates to zero and rely on the asset
+    # schedule in the calculator (see frontend VEO_PER_SECOND_USD).
     "gemini-3-pro-image-preview": Rate(input_per_mtok=2.00, output_per_mtok=0.0),
     "gemini-3.1-flash-image-preview": Rate(input_per_mtok=0.50, output_per_mtok=0.0),
     "gemini-2.5-flash-image": Rate(input_per_mtok=0.30, output_per_mtok=0.0),
     "imagen-4": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
-    "veo-3.1-generate-preview": Rate(input_per_mtok=0.30, output_per_mtok=0.0),
-    "veo-3.1-lite-generate-preview": Rate(input_per_mtok=0.075, output_per_mtok=0.0),
+    # Veo — every variant is per-second-of-output billed; per-token rates are 0.
+    "veo-3.1-generate-preview": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
+    "veo-3.1-fast-generate-preview": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
+    "veo-3.1-lite-generate-preview": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
+    "veo-3.0-generate-001": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
+    "veo-3.0-fast-generate-001": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
+    "veo-2.0-generate-001": Rate(input_per_mtok=0.0, output_per_mtok=0.0),
 }
 
-# Per-asset fees that the per-MTok rate card cannot express.
+# Per-asset fees that the per-MTok rate card cannot express. Sourced from
+# ai.google.dev/pricing (snapshot 2026-04-30).
 _ASSET_NOTES: dict[str, str] = {
-    "gemini-3-pro-image-preview": "+ ~$0.134 per image (1K-2K), $0.24 (4K)",
-    "gemini-3.1-flash-image-preview": "+ ~$0.045-0.151 per image (0.5K-4K)",
-    "gemini-2.5-flash-image": "+ ~$0.039 per image (1K)",
-    "imagen-4": "+ ~$0.02-0.06 per image (Fast/Standard/Ultra)",
-    "veo-3.1-generate-preview": "+ ~$0.40-0.60 per second of video",
-    "veo-3.1-lite-generate-preview": "+ ~$0.05-0.08 per second of video",
+    "gemini-3-pro-image-preview": "+ $0.134 per image (1K-2K), $0.24 (4K)",
+    "gemini-3.1-flash-image-preview": "+ $0.045-$0.151 per image (0.5K-4K)",
+    "gemini-2.5-flash-image": "+ $0.039 per image (1K)",
+    "imagen-4": "+ $0.02 (Fast) / $0.04 (Standard) / $0.06 (Ultra) per image",
+    "veo-3.1-generate-preview": "+ $0.40 (720p/1080p) / $0.60 (4K) per second of video",
+    "veo-3.1-fast-generate-preview": "+ $0.10 (720p) / $0.12 (1080p) / $0.30 (4K) per second of video",
+    "veo-3.1-lite-generate-preview": "+ $0.05 (720p) / $0.08 (1080p) per second of video",
+    "veo-3.0-generate-001": "+ $0.40 per second of video",
+    "veo-3.0-fast-generate-001": "+ $0.10 (720p) / $0.12 (1080p) / $0.30 (4K) per second of video",
+    "veo-2.0-generate-001": "+ $0.35 per second of video",
 }
 
 _USD_TO_INR = 84.0

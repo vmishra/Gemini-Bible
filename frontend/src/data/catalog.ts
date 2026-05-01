@@ -222,12 +222,48 @@ export const FAMILIES: ModelFamily[] = [
         capabilities: ['video-gen', 'native-audio'],
       },
       {
-        id: 'veo-3.1-lite-generate-preview',
-        display: 'Veo 3.1 Lite',
+        id: 'veo-3.1-fast-generate-preview',
+        display: 'Veo 3.1 Fast',
         tier: 'workhorse',
         modalities: { input: ['text', 'image'], output: ['video'] },
         when_to_use:
-          'Cost-sensitive iteration during a creative cycle, or high-volume short-form output.',
+          'Quarter the per-second cost of Veo 3.1 Standard. Good for iteration and large batch runs where shots will be re-cut anyway.',
+        capabilities: ['video-gen'],
+      },
+      {
+        id: 'veo-3.1-lite-generate-preview',
+        display: 'Veo 3.1 Lite',
+        tier: 'lite',
+        modalities: { input: ['text', 'image'], output: ['video'] },
+        when_to_use:
+          'Cheapest Veo tier (no 4K). High-volume short-form output where the bar is "watchable", not "cinematic".',
+        capabilities: ['video-gen'],
+      },
+      {
+        id: 'veo-3.0-generate-001',
+        display: 'Veo 3',
+        tier: 'prior',
+        modalities: { input: ['text', 'image'], output: ['video'] },
+        when_to_use:
+          "Prior-gen Veo flagship. Pin only if you have validated against this exact model and aren't ready to migrate to 3.1.",
+        capabilities: ['video-gen'],
+      },
+      {
+        id: 'veo-3.0-fast-generate-001',
+        display: 'Veo 3 Fast',
+        tier: 'prior',
+        modalities: { input: ['text', 'image'], output: ['video'] },
+        when_to_use:
+          'Prior-gen Fast tier. Migrate to 3.1 Fast when you can — same shape, sharper output.',
+        capabilities: ['video-gen'],
+      },
+      {
+        id: 'veo-2.0-generate-001',
+        display: 'Veo 2',
+        tier: 'prior',
+        modalities: { input: ['text', 'image'], output: ['video'] },
+        when_to_use:
+          'Two-gen-old. Use only if you have prod traffic dependent on it; otherwise migrate.',
         capabilities: ['video-gen'],
       },
     ],

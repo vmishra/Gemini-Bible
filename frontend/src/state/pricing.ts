@@ -6,6 +6,8 @@ export type ModelRate = {
   cached_input_per_mtok_usd: number | null
   audio_input_per_mtok_usd?: number | null
   cached_audio_per_mtok_usd?: number | null
+  image_input_per_mtok_usd?: number | null
+  video_input_per_mtok_usd?: number | null
   long_context_threshold_tokens?: number | null
   long_context_input_per_mtok_usd?: number | null
   long_context_output_per_mtok_usd?: number | null

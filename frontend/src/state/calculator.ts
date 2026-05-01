@@ -48,17 +48,37 @@ export const IMAGE_PER_ASSET_USD: Record<string, Record<string, number>> = {
 }
 
 // Veo: USD per second of generated video, keyed by model id × resolution.
-// Only the two Veo ids in this project's catalog are listed; verify the
-// pricing page before adding Veo 3 / Veo 2 / Veo 3.1 Fast.
+// Every Veo model id surfaced on ai.google.dev/pricing is included; rates are
+// quoted verbatim from that page (snapshot 2026-04-30). Veo prompt input is
+// not token-billed for any of these models — the per-second fee is the bill.
 export const VEO_PER_SECOND_USD: Record<string, Record<string, number>> = {
+  // Veo 3.1 — three speed tiers as separate model ids on the pricing page.
   'veo-3.1-generate-preview': {
     '720p': 0.4,
     '1080p': 0.4,
     '4K': 0.6,
   },
+  'veo-3.1-fast-generate-preview': {
+    '720p': 0.1,
+    '1080p': 0.12,
+    '4K': 0.3,
+  },
   'veo-3.1-lite-generate-preview': {
     '720p': 0.05,
     '1080p': 0.08,
+  },
+  // Veo 3 — two variants.
+  'veo-3.0-generate-001': {
+    'any': 0.4,
+  },
+  'veo-3.0-fast-generate-001': {
+    '720p': 0.1,
+    '1080p': 0.12,
+    '4K': 0.3,
+  },
+  // Veo 2 — flat per-second.
+  'veo-2.0-generate-001': {
+    'any': 0.35,
   },
 }
 
@@ -322,24 +342,28 @@ function computeMusic(inputs: MusicGenInputs): CalcResult {
 }
 
 function computeEmbeddings(rate: ModelRate, inputs: EmbeddingsInputs): CalcResult {
-  // gemini-embedding-2 has separate rates by modality. The rate card we expose
-  // surfaces text under input_per_mtok_usd; audio/video/image rates aren't
-  // exposed via /api/pricing yet, so we approximate using documented multipliers
-  // from the pricing page (text $0.20, image $0.45, audio $6.50, video $12.00 on
-  // gemini-embedding-2).
-  const inRate = rate.input_per_mtok_usd
-  const audioRate = rate.audio_input_per_mtok_usd ?? inRate
-  // Image and video rates aren't exposed; fall back to text rate with a warning.
+  // Per-modality rates — each falls back to the text rate when the model
+  // doesn't price that modality separately. gemini-embedding-2 sets all four
+  // explicitly per ai.google.dev/pricing.
+  const textRate = rate.input_per_mtok_usd
+  const imageRate = rate.image_input_per_mtok_usd ?? textRate
+  const audioRate = rate.audio_input_per_mtok_usd ?? textRate
+  const videoRate = rate.video_input_per_mtok_usd ?? textRate
+
   const parts = [
-    { label: 'text', usd: (inputs.textTokens * inRate) / 1_000_000 },
-    { label: 'image', usd: (inputs.imageTokens * inRate) / 1_000_000 },
+    { label: 'text', usd: (inputs.textTokens * textRate) / 1_000_000 },
+    { label: 'image', usd: (inputs.imageTokens * imageRate) / 1_000_000 },
     { label: 'audio', usd: (inputs.audioTokens * audioRate) / 1_000_000 },
-    { label: 'video', usd: (inputs.videoTokens * inRate) / 1_000_000 },
+    { label: 'video', usd: (inputs.videoTokens * videoRate) / 1_000_000 },
   ]
   const perCall = parts.reduce((s, p) => s + p.usd, 0)
+
   const warnings: string[] = []
-  if (inputs.imageTokens > 0 || inputs.videoTokens > 0) {
-    warnings.push('Image and video embedding rates approximated using the text rate. Verify ai.google.dev/pricing for exact multimodal embedding rates.')
+  if (inputs.imageTokens > 0 && rate.image_input_per_mtok_usd == null) {
+    warnings.push('Image embedding rate not in rate card for this model — using the text rate. Verify against ai.google.dev/pricing.')
+  }
+  if (inputs.videoTokens > 0 && rate.video_input_per_mtok_usd == null) {
+    warnings.push('Video embedding rate not in rate card for this model — using the text rate. Verify against ai.google.dev/pricing.')
   }
   return {
     perCallUsd: perCall,

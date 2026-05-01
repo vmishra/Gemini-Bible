@@ -41,3 +41,6 @@ application_default_credentials.json
 
 # OS
 Thumbs.db
+
+# Runtime state from scripts/start.sh
+.run/

@@ -1,0 +1,312 @@
+/**
+ * Editorial layer over the Gemini family — pricing comes from /api/pricing,
+ * but the family grouping, tier ranking, and when-to-use copy live here.
+ *
+ * Keep this honest: only assert capabilities the model actually has, only
+ * suggest a use when you'd defend it in a customer call.
+ */
+
+export type ModelTier = 'flagship' | 'workhorse' | 'lite' | 'prior' | 'preview' | 'experimental'
+
+export type ModelEntry = {
+  id: string                       // Canonical model id used in API calls.
+  display: string                  // Human-readable name.
+  tier: ModelTier
+  modalities: {
+    input: ('text' | 'image' | 'audio' | 'video' | 'pdf')[]
+    output: ('text' | 'image' | 'audio' | 'video' | 'embedding')[]
+  }
+  context_window?: string          // Free-form, e.g. "1M tokens"; omit when unknown.
+  when_to_use: string              // One-line.
+  capabilities: string[]           // Short tags: streaming, tools, grounding-search, thinking, structured-output, ...
+  notes?: string                   // Optional second line; used sparingly.
+}
+
+export type ModelFamily = {
+  id: string
+  label: string                    // e.g. "Text and multimodal"
+  kicker: string                   // Two-or-three-word kicker for the section header.
+  blurb: string                    // One-sentence explanation of what the family is for.
+  models: ModelEntry[]
+}
+
+export const FAMILIES: ModelFamily[] = [
+  {
+    id: 'text',
+    label: 'Text and multimodal',
+    kicker: 'reasoning',
+    blurb:
+      'The default surface. All models accept text, image, audio, video, and PDF input; differ on intelligence, latency, and cost.',
+    models: [
+      {
+        id: 'gemini-3.1-pro-preview',
+        display: 'Gemini 3.1 Pro',
+        tier: 'flagship',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['text'] },
+        context_window: '1M tokens',
+        when_to_use:
+          'Hardest reasoning, agentic plans, deep coding. Reach for it when 3 Flash struggles.',
+        capabilities: ['thinking', 'tools', 'grounding-search', 'grounding-maps', 'structured-output', 'context-cache'],
+      },
+      {
+        id: 'gemini-3-flash-preview',
+        display: 'Gemini 3 Flash',
+        tier: 'workhorse',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['text'] },
+        context_window: '1M tokens',
+        when_to_use:
+          'Default for most workloads. Balanced speed, cost, and capability — start here.',
+        capabilities: ['thinking', 'tools', 'grounding-search', 'grounding-maps', 'structured-output', 'context-cache', 'streaming', 'chat'],
+      },
+      {
+        id: 'gemini-3.1-flash-lite-preview',
+        display: 'Gemini 3.1 Flash-Lite',
+        tier: 'lite',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['text'] },
+        context_window: '1M tokens',
+        when_to_use:
+          'Highest QPS at the lowest unit cost. Routing, classification, simple extraction.',
+        capabilities: ['tools', 'structured-output', 'streaming', 'chat'],
+      },
+      {
+        id: 'gemini-2.5-pro',
+        display: 'Gemini 2.5 Pro',
+        tier: 'prior',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['text'] },
+        context_window: '2M tokens',
+        when_to_use:
+          'Prior-gen flagship. Pin it if you have validated against it and aren’t ready to migrate.',
+        capabilities: ['thinking', 'tools', 'grounding-search', 'structured-output', 'context-cache'],
+      },
+      {
+        id: 'gemini-2.5-flash',
+        display: 'Gemini 2.5 Flash',
+        tier: 'prior',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['text'] },
+        context_window: '1M tokens',
+        when_to_use:
+          'Stable workhorse from the prior generation. Useful as a baseline while evaluating 3 Flash.',
+        capabilities: ['thinking', 'tools', 'grounding-search', 'structured-output', 'context-cache', 'streaming', 'chat'],
+      },
+      {
+        id: 'gemini-2.5-flash-lite',
+        display: 'Gemini 2.5 Flash-Lite',
+        tier: 'prior',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['text'] },
+        context_window: '1M tokens',
+        when_to_use:
+          'Prior-gen Lite. Migrate to 3.1 Flash-Lite when you can — equivalent shape at a lower price.',
+        capabilities: ['tools', 'structured-output', 'streaming', 'chat'],
+      },
+    ],
+  },
+  {
+    id: 'live',
+    label: 'Live and realtime',
+    kicker: 'voice',
+    blurb:
+      'Bidirectional sessions over a WebSocket. Sub-second turn-taking, native audio in and out, interruption handling.',
+    models: [
+      {
+        id: 'gemini-3.1-flash-live-preview',
+        display: 'Gemini 3.1 Flash Live',
+        tier: 'workhorse',
+        modalities: { input: ['text', 'audio', 'video'], output: ['text', 'audio'] },
+        when_to_use:
+          'Voice agents and copilots needing low-latency, full-duplex turn-taking with native audio.',
+        capabilities: ['live-session', 'streaming-audio', 'tools'],
+      },
+      {
+        id: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        display: 'Gemini 2.5 Flash Native Audio',
+        tier: 'prior',
+        modalities: { input: ['text', 'audio', 'video'], output: ['text', 'audio'] },
+        when_to_use:
+          'Prior-gen native-audio Live model. Hold here only if you have prod traffic dependent on its specific voice profile.',
+        capabilities: ['live-session', 'streaming-audio'],
+      },
+      {
+        id: 'gemini-3.1-flash-tts-preview',
+        display: 'Gemini 3.1 Flash TTS',
+        tier: 'workhorse',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Standalone speech generation when you don’t need a full Live session.',
+        capabilities: ['tts'],
+      },
+    ],
+  },
+  {
+    id: 'image',
+    label: 'Image generation',
+    kicker: 'pixels',
+    blurb:
+      'The Nano Banana family generates and edits images natively from a Gemini call. Imagen 4 is the dedicated text-to-image engine.',
+    models: [
+      {
+        id: 'gemini-3-pro-image-preview',
+        display: 'Nano Banana Pro',
+        tier: 'flagship',
+        modalities: { input: ['text', 'image'], output: ['image', 'text'] },
+        when_to_use:
+          'Studio-grade output up to 4K. Marketing assets, hero shots, anything that ships externally.',
+        capabilities: ['image-gen', 'image-edit', '4k'],
+      },
+      {
+        id: 'gemini-3.1-flash-image-preview',
+        display: 'Nano Banana 2',
+        tier: 'workhorse',
+        modalities: { input: ['text', 'image'], output: ['image', 'text'] },
+        when_to_use: 'Production-scale generation at 1024 px. The default for batched creative work.',
+        capabilities: ['image-gen', 'image-edit'],
+      },
+      {
+        id: 'gemini-2.5-flash-image',
+        display: 'Nano Banana',
+        tier: 'prior',
+        modalities: { input: ['text', 'image'], output: ['image', 'text'] },
+        when_to_use: 'Prior-gen Nano Banana. Migrate to 3.1 Flash Image — same price, sharper output.',
+        capabilities: ['image-gen', 'image-edit'],
+      },
+      {
+        id: 'imagen-4',
+        display: 'Imagen 4',
+        tier: 'flagship',
+        modalities: { input: ['text'], output: ['image'] },
+        when_to_use:
+          'Pure text-to-image when you don’t need Gemini reasoning around the image. Clean, fast, up to 2K.',
+        capabilities: ['image-gen'],
+      },
+    ],
+  },
+  {
+    id: 'video',
+    label: 'Video generation',
+    kicker: 'frames',
+    blurb:
+      'Veo 3.1 generates short clips with native audio. The call returns a long-running operation; poll until done.',
+    models: [
+      {
+        id: 'veo-3.1-generate-preview',
+        display: 'Veo 3.1',
+        tier: 'flagship',
+        modalities: { input: ['text', 'image'], output: ['video'] },
+        when_to_use:
+          'Cinema-grade short video with synchronized audio. Hero spots, product reveals, finished cuts.',
+        capabilities: ['video-gen', 'native-audio'],
+      },
+      {
+        id: 'veo-3.1-lite-generate-preview',
+        display: 'Veo 3.1 Lite',
+        tier: 'workhorse',
+        modalities: { input: ['text', 'image'], output: ['video'] },
+        when_to_use:
+          'Cost-sensitive iteration during a creative cycle, or high-volume short-form output.',
+        capabilities: ['video-gen'],
+      },
+    ],
+  },
+  {
+    id: 'embeddings',
+    label: 'Embeddings',
+    kicker: 'vectors',
+    blurb:
+      'Dense vectors for retrieval, semantic search, RAG. Configurable output dimensionality.',
+    models: [
+      {
+        id: 'gemini-embedding-2',
+        display: 'gemini-embedding-2',
+        tier: 'workhorse',
+        modalities: { input: ['text', 'image', 'audio', 'video', 'pdf'], output: ['embedding'] },
+        when_to_use:
+          'Default embeddings model. Multimodal input, fold task instructions into the prompt text.',
+        capabilities: ['embeddings', 'multimodal-input', 'configurable-dim'],
+      },
+      {
+        id: 'gemini-embedding-001',
+        display: 'gemini-embedding-001',
+        tier: 'prior',
+        modalities: { input: ['text'], output: ['embedding'] },
+        when_to_use:
+          'Prior-gen embeddings. Use when you specifically need the task_type parameter (RETRIEVAL_DOCUMENT etc.).',
+        capabilities: ['embeddings', 'task-type'],
+      },
+    ],
+  },
+  {
+    id: 'specialized',
+    label: 'Specialized and experimental',
+    kicker: 'previews',
+    blurb:
+      'Purpose-built models for browser automation, deep research, robotics, and music. Treat as preview unless explicitly marked GA.',
+    models: [
+      {
+        id: 'gemini-2.5-computer-use-preview-10-2025',
+        display: 'Gemini Computer Use',
+        tier: 'experimental',
+        modalities: { input: ['text', 'image'], output: ['text'] },
+        when_to_use: 'Automating real browser tasks via UI interaction. Treat as preview.',
+        capabilities: ['computer-use', 'tools'],
+      },
+      {
+        id: 'deep-research-preview-04-2026',
+        display: 'Deep Research',
+        tier: 'experimental',
+        modalities: { input: ['text'], output: ['text'] },
+        when_to_use:
+          'Multi-step agentic research over hundreds of sources. Long-running, expensive — pick the model deliberately.',
+        capabilities: ['deep-research', 'agentic'],
+      },
+      {
+        id: 'gemini-robotics-er-1.6-preview',
+        display: 'Gemini Robotics ER 1.6',
+        tier: 'experimental',
+        modalities: { input: ['text', 'image', 'video'], output: ['text'] },
+        when_to_use:
+          'Embodied reasoning for robotics planning. Spatial understanding, task decomposition for actuators.',
+        capabilities: ['embodied'],
+      },
+      {
+        id: 'lyria-3-pro-preview',
+        display: 'Lyria 3 Pro',
+        tier: 'flagship',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Full-length music generation from prompt and structure.',
+        capabilities: ['music-gen'],
+      },
+      {
+        id: 'lyria-realtime-exp',
+        display: 'Lyria Realtime',
+        tier: 'experimental',
+        modalities: { input: ['text'], output: ['audio'] },
+        when_to_use: 'Streaming music generation with granular control. Experimental.',
+        capabilities: ['music-gen', 'streaming-audio'],
+      },
+    ],
+  },
+]
+
+export const TIER_ORDER: ModelTier[] = ['flagship', 'workhorse', 'lite', 'prior', 'preview', 'experimental']
+
+export const TIER_LABEL: Record<ModelTier, string> = {
+  flagship: 'flagship',
+  workhorse: 'workhorse',
+  lite: 'lite',
+  prior: 'prior gen',
+  preview: 'preview',
+  experimental: 'experimental',
+}
+
+export function findFamilyForModel(modelId: string): ModelFamily | null {
+  for (const fam of FAMILIES) {
+    if (fam.models.some((m) => m.id === modelId)) return fam
+  }
+  return null
+}
+
+export function findModelEntry(modelId: string): ModelEntry | null {
+  for (const fam of FAMILIES) {
+    const m = fam.models.find((m) => m.id === modelId)
+    if (m) return m
+  }
+  return null
+}

@@ -1,9 +1,11 @@
 import { Moon, Sun } from 'lucide-react'
 import { useAuth } from '../../state/auth'
 import { useTheme } from '../../state/theme'
+import { useRoute, type Route } from '../../state/route'
 import { Chip } from '../components/Chip'
 import { Kbd } from '../components/Kbd'
 import { StatusDot } from '../components/StatusDot'
+import { cn } from '../cn'
 
 export function Topbar() {
   const { snapshot, status } = useAuth()
@@ -19,7 +21,11 @@ export function Topbar() {
       className="flex h-14 shrink-0 items-center gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-5"
       style={{ position: 'relative' }}
     >
-      <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => useRoute.getState().go('home')}
+        className="flex items-center gap-3"
+      >
         <span className="font-display text-[18px] leading-none" style={{ fontWeight: 500 }}>
           Gemini Bible
         </span>
@@ -29,7 +35,12 @@ export function Topbar() {
         >
           v0.1
         </span>
-      </div>
+      </button>
+
+      <nav className="ml-6 flex items-center gap-1">
+        <NavLink route="home" label="home" />
+        <NavLink route="samples" label="samples" />
+      </nav>
 
       <div className="ml-auto flex items-center gap-3">
         <Chip tone={ai ? 'accent' : 'neutral'}>
@@ -59,5 +70,25 @@ export function Topbar() {
         <StatusDot state={dot} />
       </div>
     </header>
+  )
+}
+
+function NavLink({ route, label }: { route: Route; label: string }) {
+  const current = useRoute((s) => s.route)
+  const go = useRoute((s) => s.go)
+  const active = current === route
+  return (
+    <button
+      type="button"
+      onClick={() => go(route)}
+      className={cn(
+        'rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
+        active
+          ? 'bg-[var(--elev-1)] text-[var(--text)]'
+          : 'text-[var(--text-muted)] hover:bg-[var(--elev-1)] hover:text-[var(--text)]',
+      )}
+    >
+      {label}
+    </button>
   )
 }

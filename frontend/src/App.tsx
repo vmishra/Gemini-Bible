@@ -1,25 +1,37 @@
 import { useEffect } from 'react'
 import { useAuth } from './state/auth'
 import { useSamples } from './state/samples'
+import { useRoute } from './state/route'
+import { usePricing } from './state/pricing'
 import { Topbar } from './ui/layout/Topbar'
 import { Browser } from './routes/Browser'
 import { Workspace } from './routes/Workspace'
+import { Home } from './routes/Home'
 
 export function App() {
   const refreshAuth = useAuth((s) => s.refresh)
   const refreshSamples = useSamples((s) => s.refresh)
+  const refreshPricing = usePricing((s) => s.refresh)
+  const route = useRoute((s) => s.route)
 
   useEffect(() => {
     void refreshAuth()
     void refreshSamples()
-  }, [refreshAuth, refreshSamples])
+    void refreshPricing()
+  }, [refreshAuth, refreshSamples, refreshPricing])
 
   return (
     <div className="flex h-screen flex-col bg-[var(--surface)] text-[var(--text)]">
       <Topbar />
       <main className="flex flex-1 overflow-hidden">
-        <Browser />
-        <Workspace />
+        {route === 'home' ? (
+          <Home />
+        ) : (
+          <>
+            <Browser />
+            <Workspace />
+          </>
+        )}
       </main>
     </div>
   )

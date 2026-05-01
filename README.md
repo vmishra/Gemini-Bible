@@ -52,24 +52,23 @@ estimated cost using the current public rate card.
 ## Quick start
 
 ```bash
-# 1. Backend (Python 3.11+)
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -e '.[dev]'
-
-# 2. Auth — set whichever surfaces you want active
+# 1. Auth — set whichever surfaces you want active
 export GEMINI_API_KEY=...                                  # AI Studio
 gcloud auth application-default login                      # Vertex
 export GOOGLE_CLOUD_PROJECT=your-project                   # Vertex
 export GOOGLE_CLOUD_LOCATION=us-central1                   # Vertex (default)
 
-uvicorn app.main:app --reload --port 8000
+# 2. One script for everything
+./app.sh start         # provision deps, background backend :8000 + frontend :5173
+./app.sh status        # pid + port per side
+./app.sh logs          # tail -f .run/{backend,frontend}.log
+./app.sh stop          # kill by pidfile, fall back to ports
+./app.sh restart
 
-# 3. Frontend (Node 20+)
-cd ../frontend
-pnpm install
-pnpm dev    # http://localhost:5173
+# Open http://localhost:5173
 ```
+
+`BACKEND_PORT` and `FRONTEND_PORT` env vars override the defaults.
 
 The backend reads keys once at startup. Nothing is persisted to disk,
 nothing is sent off-host. The browser talks to localhost only.

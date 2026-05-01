@@ -9,7 +9,7 @@ active auth surface, and reports token-usage telemetry.
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e '.[dev]'
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8165
 ```
 
 ## Auth
@@ -24,5 +24,5 @@ Detected once at startup, never persisted. Either or both:
 Probe what the server sees:
 
 ```bash
-curl localhost:8000/api/auth
+curl localhost:8165/api/auth
 ```

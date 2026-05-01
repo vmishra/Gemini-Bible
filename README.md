@@ -59,13 +59,13 @@ export GOOGLE_CLOUD_PROJECT=your-project                   # Vertex
 export GOOGLE_CLOUD_LOCATION=us-central1                   # Vertex (default)
 
 # 2. One script for everything
-./app.sh start         # provision deps, background backend :8000 + frontend :5173
+./app.sh start         # provision deps, background backend :8165 + frontend :5142
 ./app.sh status        # pid + port per side
 ./app.sh logs          # tail -f .run/{backend,frontend}.log
 ./app.sh stop          # kill by pidfile, fall back to ports
 ./app.sh restart
 
-# Open http://localhost:5173
+# Open http://localhost:5142
 ```
 
 `BACKEND_PORT` and `FRONTEND_PORT` env vars override the defaults.

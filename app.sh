@@ -2,8 +2,8 @@
 # Gemini Bible — single entrypoint for start / stop / restart / status / logs.
 #
 # Usage:
-#   ./app.sh start     provision deps, background uvicorn :8000 and vite :5173
-#   ./app.sh stop      kill by pidfile, fall back to ports 8000 / 5173
+#   ./app.sh start     provision deps, background uvicorn :8165 and vite :5142
+#   ./app.sh stop      kill by pidfile, fall back to ports 8165 / 5142
 #   ./app.sh restart   stop then start
 #   ./app.sh status    print pid + listening port for each side
 #   ./app.sh logs      tail -f backend + frontend logs
@@ -13,8 +13,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_DIR="$ROOT/.run"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+BACKEND_PORT="${BACKEND_PORT:-8165}"
+FRONTEND_PORT="${FRONTEND_PORT:-5142}"
 BACKEND_PID="$RUN_DIR/backend.pid"
 FRONTEND_PID="$RUN_DIR/frontend.pid"
 BACKEND_LOG="$RUN_DIR/backend.log"

@@ -15,6 +15,7 @@ import {
   type ModelTier,
   type Supergroup,
 } from '../data/catalog'
+import { Slide, SlideShell } from '../ui/Slides'
 import {
   ACCESSED,
   BENCHMARK_TABLE,
@@ -58,71 +59,108 @@ export function Home() {
     return out
   }, [samples])
 
+  const familyNodes = renderSections(samplesByModel)
+
   return (
-    <section className="flex flex-1 flex-col overflow-y-auto">
-      <header className="border-b border-[var(--border)] px-10 py-10">
+    <SlideShell>
+      <Slide id="hero" name="Built on Google × Gemini" className="justify-center">
         <BuiltOnLockup />
         <span
-          className="mt-8 block font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
+          className="mt-10 block font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"
           style={{ letterSpacing: '0.36em' }}
         >
           the family
         </span>
-        <h1 className="mt-3 font-display text-[44px] leading-[1.05]" style={{ fontWeight: 500 }}>
+        <h1 className="mt-3 font-display text-[56px] leading-[1.02]" style={{ fontWeight: 500 }}>
           The Gemini lineup, the way you actually pick a model.
         </h1>
-        <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[var(--text-muted)]">
-          One page per family. Pricing pulled live from the rate card. When-to-use
-          copy written for engineers who have already read the docs and need a
-          decision, not a tour.
+        <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-[var(--text-muted)]">
+          One page per family. Pricing pulled live from the rate card. Benchmarks
+          lifted from official model cards. When-to-use copy for engineers who
+          have already read the docs and need a decision, not a tour.
         </p>
         <div
           aria-hidden
-          className="mt-8 h-px w-60"
+          className="mt-10 h-px w-60"
           style={{
             background:
               'linear-gradient(90deg, transparent, var(--accent-hairline) 20%, var(--accent-hairline) 80%, transparent)',
           }}
         />
-      </header>
+      </Slide>
 
-      <div className="flex flex-col gap-12 px-10 py-10">
+      <Slide id="decision" name="Decision picker">
         <DecisionPanel samples={samples} />
+      </Slide>
 
+      <Slide id="generation-jump" name="2.5 → 3 jump">
         <GenerationJumpPanel />
+      </Slide>
 
+      <Slide id="flash-vs-pro" name="Flash vs Pro">
         <FlashVsProPanel />
+      </Slide>
 
+      <Slide id="flash-lite" name="Flash-Lite in context">
         <FlashLitePanel />
+      </Slide>
 
+      <Slide id="frontier" name="Frontier comparison">
         <FrontierComparison />
+      </Slide>
 
+      <Slide id="family-tree" name="Family tree">
         <FamilyTree />
+      </Slide>
 
-        {renderSections(samplesByModel)}
+      {familyNodes.map((node, i) => (
+        <Slide key={`family-${i}`} id={`family-${i}`} name={`Family ${i + 1}`}>
+          {node}
+        </Slide>
+      ))}
 
+      <Slide id="capabilities" name="Capability matrix">
         <CapabilityMatrix />
+      </Slide>
 
+      <Slide id="modalities" name="Modality matrix">
         <ModalityMatrix />
+      </Slide>
 
+      <Slide id="long-context" name="Long-context reality check">
         <LongContextHonesty />
+      </Slide>
 
+      <Slide id="cost-ladder" name="Cost ladder">
         <CostLadder />
+      </Slide>
 
+      <Slide id="modality-tokens" name="Modality token math">
         <ModalityTokenCosts />
+      </Slide>
 
+      <Slide id="cache-breakeven" name="Cache break-even">
         <CacheBreakeven />
+      </Slide>
 
+      <Slide id="tier-200k" name="200K tier boundary">
         <LongContextTierPanel />
+      </Slide>
 
+      <Slide id="grounding-migration" name="Grounding migration ROI">
         <GroundingMigration />
+      </Slide>
 
+      <Slide id="best-practices" name="Prompting best practices">
         <BestPracticesPanel />
+      </Slide>
 
+      <Slide id="migration-ladder" name="Migration ladder">
         <MigrationLadder />
+      </Slide>
 
-
-        <footer className="mt-4 border-t border-[var(--border)] pt-8">
+      <Slide id="colophon" name="Sources & trademarks" full={false}>
+        <footer className="border-t border-[var(--border)] pt-8">
           <p className="text-[13px] leading-relaxed text-[var(--text-subtle)]">
             Models, tiers, and copy edited by hand against the official docs at{' '}
             <a
@@ -150,8 +188,8 @@ export function Home() {
             affiliated with, endorsed by, or sponsored by Google.
           </p>
         </footer>
-      </div>
-    </section>
+      </Slide>
+    </SlideShell>
   )
 }
 

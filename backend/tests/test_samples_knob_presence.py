@@ -502,3 +502,29 @@ def test_video_veo_lro_choreography_and_config(mock_client):
     assert getattr(pg, "value", pg) == "ALLOW_ADULT"
     assert cfg.enhance_prompt is True
     assert cfg.generate_audio is True
+
+
+# ---------------------------------------------------------------------------
+# live/text-roundtrip
+# ---------------------------------------------------------------------------
+
+def test_live_text_roundtrip_connect_config(mock_client):
+    _, captured = mock_client
+    _import("live/text-roundtrip/python/ai_studio.py").main()
+
+    connect_kwargs = next(kw for p, kw in captured.calls if p == "aio.live.connect")
+    cfg = connect_kwargs.get("config")
+    assert cfg is not None
+
+    mods = [getattr(m, "value", m) for m in (cfg.response_modalities or [])]
+    assert "TEXT" in mods
+    assert cfg.temperature == 1.0
+    assert cfg.top_p == 0.95
+    assert cfg.top_k == 64
+    assert cfg.max_output_tokens == 8192
+    # Audio transcription opt-in surfaces are exposed but default off.
+    assert cfg.input_audio_transcription is None
+    assert cfg.output_audio_transcription is None
+    # Session lifecycle knobs surfaced; defaults preserved.
+    assert cfg.session_resumption is None
+    assert cfg.context_window_compression is None

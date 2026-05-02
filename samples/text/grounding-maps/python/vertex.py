@@ -5,11 +5,31 @@ SDK:     google-genai (unified Python SDK).
 Auth:    `gcloud auth application-default login` plus
          GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION in the environment.
 
-Diff vs AI Studio: only the client constructor.
+Diff vs AI Studio: only the client constructor. The request body is identical
+— enforced by tests/test_samples_surface_parity.py.
 
-Thinking: Gemini 3.x and 2.5 generate internal reasoning tokens by default.
-3.x uses thinking_level ∈ {minimal, low, medium, high}, default "high";
-2.5 uses thinking_budget int (-1 dynamic, 0 off on Flash). Set explicitly.
+WHY THIS SHAPE
+==============
+Same exhaustive GenerateContentConfig form as text/basic — see that file
+for the full per-knob rationale. Grounding-maps deviations:
+
+  • tools=[Tool(google_maps=GoogleMaps())]
+    Declares the Google Maps tool. The model issues place queries when
+    the prompt is location-aware. Place results land on
+    response.candidates[0].grounding_metadata.grounding_chunks[*].maps.
+    https://cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-maps
+
+  • tool_config.retrieval_config.lat_lng pinned to a caller location
+    Without this, "near me" prompts have no geographic anchor. Pin to
+    the actual caller location for deterministic place lookups.
+
+  • safety_settings stay at default (None)
+    Maps results are place names + URIs, not arbitrary article text —
+    default safety thresholds rarely flag them. Unlike grounding-search
+    we don't need BLOCK_NONE here.
+
+  • thinking_level="medium" (Gemini 3.x default is "high")
+    Same rationale as text/basic.
 """
 
 import os
@@ -19,9 +39,19 @@ from google.genai import types
 
 
 def _thinking_config(model: str, level: str) -> types.ThinkingConfig:
+    """Routes the thinking knob to the right field per family.
+
+    Gemini 3.x → thinking_level (string enum, default "high").
+    Gemini 2.5 → thinking_budget (int token cap, -1 dynamic default).
+    """
     if model.startswith("gemini-3"):
         return types.ThinkingConfig(thinking_level=level)
     return types.ThinkingConfig(thinking_budget=-1)
+
+
+# Downtown Los Angeles — substitute the user's actual location.
+SAMPLE_LAT = 34.050481
+SAMPLE_LNG = -118.248526
 
 
 def main(
@@ -40,12 +70,25 @@ def main(
         contents=prompt
         or "What are the best Italian restaurants within a 15-minute walk from here?",
         config=types.GenerateContentConfig(
+            # ---- Tools (the deviation) --------------------------------------
             tools=[types.Tool(google_maps=types.GoogleMaps())],
             tool_config=types.ToolConfig(
                 retrieval_config=types.RetrievalConfig(
-                    lat_lng=types.LatLng(latitude=34.050481, longitude=-118.248526),
+                    lat_lng=types.LatLng(latitude=SAMPLE_LAT, longitude=SAMPLE_LNG),
                 ),
             ),
+            # ---- Sampling ---------------------------------------------------
+            temperature=1.0,            # default 1.0; raise for creative, lower for JSON
+            top_p=0.95,                 # default 0.95
+            top_k=64,                   # default 64 on Gemini 3.x (was 40 on 2.5)
+            candidate_count=1,          # default 1; >1 not supported on Gemini 3.x
+            max_output_tokens=8192,     # default model-dependent; cap to bound spend
+            # ---- Stop / Output / Safety / Determinism (defaults) ------------
+            stop_sequences=None,
+            response_mime_type="text/plain",
+            safety_settings=None,       # default ON; maps results rarely trip the filter
+            seed=None,
+            # ---- Reasoning --------------------------------------------------
             thinking_config=_thinking_config(model, thinking_level),
         ),
     )
@@ -74,7 +117,7 @@ def main(
         "text": response.text,
         "model": model,
         "places": places,
-        "lat_lng": {"latitude": 34.050481, "longitude": -118.248526},
+        "lat_lng": {"latitude": SAMPLE_LAT, "longitude": SAMPLE_LNG},
         "thinking_knob": "thinking_level" if model.startswith("gemini-3") else "thinking_budget",
         "thinking_value": thinking_level if model.startswith("gemini-3") else -1,
         "finish_reason": _finish_reason(response),

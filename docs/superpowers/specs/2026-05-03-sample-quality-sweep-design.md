@@ -328,18 +328,21 @@ isolation. Push after each commit. Author: Vikas Mishra.
 After I3 the harness runs green against the *current* (unswept) samples.
 Subsequent per-sample commits add knob-presence assertions on top.
 
-### Per-sample commits (3 each × 19 samples = 57)
+### Per-sample commits (2 each × 19 samples = 38)
 
-For every sample, three small commits in this order:
+For every sample, two small commits in this order:
 
-1. `samples(<id>): sweep AI Studio twin to reference-grade form`
-2. `samples(<id>): sweep Vertex twin to match`
-3. `tests(<id>): knob-presence assertions for the swept knobs`
+1. `samples(<id>): sweep both surface twins to reference-grade form`
+2. `tests(<id>): knob-presence assertions for the swept knobs`
 
-Splitting AI Studio and Vertex into separate commits is intentional even
-though they are near-duplicates: a reviewer reading commit (2) sees only
-the second-surface diff, which makes any drift between the twins
-immediately visible. The parity test from I3 enforces this mechanically.
+The original plan split AI Studio and Vertex sweeps into separate commits
+to make second-surface drift visible to a reviewer. That conflicts with
+the per-commit invariant that **all tests pass at every commit**: the
+surface-parity test goes red the moment one twin moves ahead of the
+other. Better to sweep both twins together and let the parity test (which
+runs on every commit) be the lock — review of the two-file diff is
+indistinguishable from review of two one-file commits, and CI never goes
+red.
 
 ### Sample order
 
@@ -371,9 +374,10 @@ live).
 
 ### Total
 
-**4 infra + 57 per-sample = 61 commits.** Each gets pushed to `origin/main`
+**4 infra + 38 per-sample = 42 commits.** Each gets pushed to `origin/main`
 as it lands, so progress is visible incrementally and any single commit
-can be reverted without disturbing the rest.
+can be reverted without disturbing the rest. All tests pass at every
+commit.
 
 ### Definition of done per commit
 

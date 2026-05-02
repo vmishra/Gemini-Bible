@@ -153,3 +153,32 @@ def test_text_streaming_capped_output_tokens(mock_client):
     # Other knobs match basic.
     assert cfg.temperature == 1.0
     assert cfg.thinking_config.thinking_level.value == "MEDIUM"
+
+
+# ---------------------------------------------------------------------------
+# text/multimodal-input
+# ---------------------------------------------------------------------------
+
+def test_text_multimodal_input_contents_is_list_with_part(mock_client):
+    """contents must be a list with the image Part first, text second."""
+    _, captured = mock_client
+    _import("text/multimodal-input/python/ai_studio.py").main()
+    for path, kw in captured.calls:
+        if path == "models.generate_content":
+            contents = kw.get("contents")
+            assert isinstance(contents, list)
+            assert len(contents) == 2
+            # First element is a Part; second is a string (auto-wrapped).
+            from google.genai import types
+            assert isinstance(contents[0], types.Part)
+            return
+    raise AssertionError("no generate_content call captured")
+
+
+def test_text_multimodal_response_modalities_text_explicit(mock_client):
+    _, captured = mock_client
+    _import("text/multimodal-input/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+    # response_modalities is coerced to a list of MediaModality enum values.
+    mods = [getattr(m, "value", m) for m in (cfg.response_modalities or [])]
+    assert "TEXT" in mods

@@ -123,3 +123,145 @@ def apply_hunks(original: str, hunks: list[DiffHunk]) -> str:
     for start, end, after, _ in reversed(spans):
         out = out[:start] + after + out[end:]
     return out
+
+
+# ---------------------------------------------------------------------------
+# Cost estimate
+# ---------------------------------------------------------------------------
+
+# Per-leg max output tokens (also enforced at request time on the SDK call).
+TUNER_MAX_OUTPUT = 2000
+TARGET_MAX_OUTPUT = 2000
+JUDGE_MAX_OUTPUT = 1500
+
+# Default judge model when the caller doesn't override.
+DEFAULT_JUDGE_MODEL = "gemini-3.1-pro-preview"
+
+
+def _approx_tokens(text: str) -> int:
+    """Heuristic token count: ~1 token per 4 characters of English text.
+
+    Used by the cost estimator so it can run without a network round-trip
+    on every keystroke. Real per-call accounting uses the SDK's
+    usage_metadata, which is exact.
+    """
+    return max(len(text) // 4, 1) if text else 0
+
+
+class CostLeg(BaseModel):
+    """One leg of the cost estimate breakdown."""
+    label: str                            # e.g. "tuner", "target original", "judge"
+    model: str
+    input_tokens: int
+    output_tokens_max: int                # cap, not actual; we pre-bound the LLM
+    usd: float
+
+
+class CostEstimate(BaseModel):
+    legs: list[CostLeg]
+    total_usd: float
+    run_ab: bool                          # echoes the request flag
+    notes: list[str] = Field(default_factory=list)
+
+
+def _leg_cost(model: str, input_tokens: int, output_tokens_max: int) -> tuple[float, str | None]:
+    """Compute one leg's USD against the rate card. Returns (usd, note)."""
+    from .metrics import _price_of
+
+    rate = _price_of(model)
+    if rate is None:
+        return 0.0, f"no rate-card entry for {model!r}; cost shown as $0.00"
+
+    # Long-context tier crossover. For estimate purposes, apply tier-2 rates
+    # to the WHOLE prompt when it crosses the threshold (matches what the
+    # billing system does — there's no proration, the whole call gets tier-2).
+    is_long = (
+        rate.long_context_threshold_tokens is not None
+        and input_tokens > rate.long_context_threshold_tokens
+    )
+    in_rate = (
+        rate.long_context_input_per_mtok or rate.input_per_mtok
+        if is_long
+        else rate.input_per_mtok
+    )
+    out_rate = (
+        rate.long_context_output_per_mtok or rate.output_per_mtok
+        if is_long
+        else rate.output_per_mtok
+    )
+
+    usd = (input_tokens * in_rate + output_tokens_max * out_rate) / 1_000_000
+    return usd, None
+
+
+def estimate_cost(
+    *,
+    prompt: str,
+    target_model: str,
+    run_ab: bool = False,
+    tuner_model: str | None = None,
+    judge_model: str | None = None,
+    catalog_size_chars: int = 4000,        # rough size of the rule catalog appended to tuner input
+    tuned_overhead_chars: int = 200,       # rough size of the diff metadata returned
+) -> CostEstimate:
+    """Pre-flight cost estimate for a /api/tune call.
+
+    Inputs are estimated via a 1-token-per-4-chars heuristic so the
+    estimator runs without a network round-trip. Per-leg `output_tokens_max`
+    is the SDK-enforced cap, not the expected actual — gives an upper-bound
+    estimate, which is the right side to err on for a pre-flight.
+
+    The catalog_size_chars and tuned_overhead_chars defaults are tuned to
+    the current catalog (4 files, ~18 rules ≈ 4 KB serialised).
+    """
+    tuner = tuner_model or target_model
+    judge = judge_model or DEFAULT_JUDGE_MODEL
+
+    legs: list[CostLeg] = []
+    notes: list[str] = []
+
+    # Tuner sees the prompt + the filtered rule catalog. Output is the diff JSON.
+    tuner_input = _approx_tokens(prompt) + _approx_tokens("x" * catalog_size_chars)
+    tuner_usd, note = _leg_cost(tuner, tuner_input, TUNER_MAX_OUTPUT)
+    if note:
+        notes.append(note)
+    legs.append(CostLeg(
+        label="tuner",
+        model=tuner,
+        input_tokens=tuner_input,
+        output_tokens_max=TUNER_MAX_OUTPUT,
+        usd=tuner_usd,
+    ))
+
+    if run_ab:
+        # Two target runs: original and tuned. Tuned input ≈ original + diff overhead.
+        original_in = _approx_tokens(prompt)
+        tuned_in = original_in + _approx_tokens("x" * tuned_overhead_chars)
+
+        for label, in_toks in (("target · original", original_in), ("target · tuned", tuned_in)):
+            usd, note = _leg_cost(target_model, in_toks, TARGET_MAX_OUTPUT)
+            if note:
+                notes.append(note)
+            legs.append(CostLeg(
+                label=label,
+                model=target_model,
+                input_tokens=in_toks,
+                output_tokens_max=TARGET_MAX_OUTPUT,
+                usd=usd,
+            ))
+
+        # Judge sees both outputs (cap × 2) plus the diff hunks (~500 chars).
+        judge_in = TARGET_MAX_OUTPUT * 2 + _approx_tokens("x" * 500)
+        judge_usd, note = _leg_cost(judge, judge_in, JUDGE_MAX_OUTPUT)
+        if note:
+            notes.append(note)
+        legs.append(CostLeg(
+            label="judge",
+            model=judge,
+            input_tokens=judge_in,
+            output_tokens_max=JUDGE_MAX_OUTPUT,
+            usd=judge_usd,
+        ))
+
+    total = sum(leg.usd for leg in legs)
+    return CostEstimate(legs=legs, total_usd=total, run_ab=run_ab, notes=notes)

@@ -5,7 +5,35 @@ SDK:     google-genai (unified Python SDK).
 Auth:    `gcloud auth application-default login` plus
          GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION in the environment.
 
-Diff vs AI Studio: only the client constructor.
+Diff vs AI Studio: only the client constructor. The request body is identical
+— enforced by tests/test_samples_surface_parity.py.
+
+WHY THIS SHAPE
+==============
+Image generation rides on generate_content with response_modalities flipped
+to IMAGE. ImageConfig holds the per-image knobs (aspect ratio, size, person
+generation policy, output codec). Inline image bytes return as base64 in
+candidates[0].content.parts[*].inline_data.
+
+  • response_modalities=["IMAGE"]
+    Flips the model from text to image generation. To get both an image
+    and a caption, use ["IMAGE","TEXT"] and iterate parts dispatching on
+    inline_data vs text.
+    https://cloud.google.com/vertex-ai/generative-ai/docs/image/overview
+
+  • image_config.aspect_ratio="16:9"
+    Common cinematic ratio. Other documented values: "1:1", "3:4", "4:3",
+    "9:16", "16:9", "21:9". Unsupported ratios get rounded to the nearest
+    documented one with no warning.
+
+  • image_config.person_generation="ALLOW_ADULT"
+    Three-valued knob: DONT_ALLOW (no people), ALLOW_ADULT (default in
+    most regions), ALLOW_ALL (subject to regional availability). Set
+    explicitly to make the policy visible in code.
+
+  • image_config.output_mime_type="image/png"
+    PNG is lossless; switch to "image/jpeg" + output_compression_quality
+    when bandwidth matters more than fidelity.
 """
 
 import base64
@@ -29,7 +57,18 @@ def main(
         model=model,
         contents=prompt
         or "An overhead studio shot of a single ripe banana on a matte charcoal surface, soft directional light from the upper left, shallow depth of field, magazine cover composition.",
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+        config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(
+                aspect_ratio="16:9",                # see WHY for ratio menu
+                person_generation="ALLOW_ADULT",    # default in most regions
+                output_mime_type="image/png",       # lossless; jpeg + quality for bandwidth
+            ),
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,                              # set int for repro test images
+        ),
     )
 
     images = []

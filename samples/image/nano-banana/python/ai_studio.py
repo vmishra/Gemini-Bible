@@ -4,9 +4,35 @@ Surface: AI Studio (api-key authenticated).
 SDK:     google-genai (unified Python SDK).
 Auth:    GEMINI_API_KEY in the environment.
 
-Inline image bytes are returned as base64 in the response payload —
-the host runner forwards them to the UI as a data URL so they render
-inline next to the prompt.
+WHY THIS SHAPE
+==============
+Image generation rides on generate_content with response_modalities flipped
+to IMAGE. ImageConfig holds the per-image knobs (aspect ratio, size, person
+generation policy, output codec). Inline image bytes return as base64 in
+candidates[0].content.parts[*].inline_data — the host runner forwards them
+to the UI as a data URL.
+
+  • response_modalities=["IMAGE"]
+    Flips the model from text to image generation. To get both an image
+    and a caption, use ["IMAGE","TEXT"] and iterate parts dispatching on
+    inline_data vs text.
+    https://ai.google.dev/gemini-api/docs/image-generation
+
+  • image_config.aspect_ratio="16:9"
+    Common cinematic ratio. Other documented values: "1:1", "3:4", "4:3",
+    "9:16", "16:9", "21:9". Unsupported ratios get rounded to the nearest
+    documented one with no warning.
+
+  • image_config.person_generation="ALLOW_ADULT"
+    Three-valued knob: DONT_ALLOW (no people), ALLOW_ADULT (default in
+    most regions), ALLOW_ALL (subject to regional availability). The
+    default is region-dependent — set explicitly to make the policy
+    visible in code.
+
+  • image_config.output_mime_type="image/png"
+    PNG is lossless; switch to "image/jpeg" + output_compression_quality
+    when bandwidth matters more than fidelity. JPEG quality defaults to
+    85 in the SDK.
 """
 
 import base64
@@ -25,7 +51,18 @@ def main(
         model=model,
         contents=prompt
         or "An overhead studio shot of a single ripe banana on a matte charcoal surface, soft directional light from the upper left, shallow depth of field, magazine cover composition.",
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+        config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(
+                aspect_ratio="16:9",                # see WHY for ratio menu
+                person_generation="ALLOW_ADULT",    # default in most regions
+                output_mime_type="image/png",       # lossless; jpeg + quality for bandwidth
+            ),
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,                              # set int for repro test images
+        ),
     )
 
     images = []

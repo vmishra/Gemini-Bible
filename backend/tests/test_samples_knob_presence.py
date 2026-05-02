@@ -316,3 +316,28 @@ def test_text_grounding_search_tool_and_block_none(mock_client):
         "HARM_CATEGORY_SEXUALLY_EXPLICIT",
         "HARM_CATEGORY_DANGEROUS_CONTENT",
     ])
+
+
+# ---------------------------------------------------------------------------
+# text/grounding-maps
+# ---------------------------------------------------------------------------
+
+def test_text_grounding_maps_tool_and_lat_lng_pinned(mock_client):
+    _, captured = mock_client
+    _import("text/grounding-maps/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+
+    # google_maps tool present.
+    assert cfg.tools is not None and len(cfg.tools) == 1
+    assert cfg.tools[0].google_maps is not None
+
+    # lat_lng pinned via tool_config.retrieval_config.
+    assert cfg.tool_config is not None
+    assert cfg.tool_config.retrieval_config is not None
+    ll = cfg.tool_config.retrieval_config.lat_lng
+    assert ll is not None
+    assert abs(ll.latitude - 34.050481) < 1e-6
+    assert abs(ll.longitude - (-118.248526)) < 1e-6
+
+    # safety_settings stay default (None) — distinct from grounding-search.
+    assert cfg.safety_settings is None

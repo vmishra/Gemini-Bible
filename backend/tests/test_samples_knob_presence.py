@@ -225,3 +225,26 @@ def test_text_chat_knobs_live_on_chats_create(mock_client):
     # genuinely needed; the default sample doesn't need them).
     for _, kw in send_calls:
         assert "config" not in kw or kw.get("config") is None
+
+
+# ---------------------------------------------------------------------------
+# text/thinking
+# ---------------------------------------------------------------------------
+
+def test_text_thinking_showcase_high_level_with_thoughts(mock_client):
+    """Showcase sample turns thinking up to 'high' AND includes the trace."""
+    _, captured = mock_client
+    _import("text/thinking/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+    assert cfg.thinking_config.thinking_level.value == "HIGH"
+    assert cfg.thinking_config.include_thoughts is True
+
+
+def test_text_thinking_2_5_fallback_budget(mock_client):
+    """Caller passes a 2.5 model: showcase budget=2048, thoughts still on."""
+    _, captured = mock_client
+    _import("text/thinking/python/ai_studio.py").main(model="gemini-2.5-pro")
+    cfg = _generate_content_config(captured)
+    assert cfg.thinking_config.thinking_budget == 2048
+    assert cfg.thinking_config.thinking_level is None
+    assert cfg.thinking_config.include_thoughts is True

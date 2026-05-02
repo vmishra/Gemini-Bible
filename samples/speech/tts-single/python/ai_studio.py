@@ -4,8 +4,30 @@ Surface: AI Studio (api-key authenticated).
 SDK:     google-genai (unified Python SDK).
 Auth:    GEMINI_API_KEY in the environment.
 
-Output is raw 24 kHz mono 16-bit PCM. Wrapping in a WAV header so it
-plays directly in the browser via <audio>.
+WHY THIS SHAPE
+==============
+TTS rides on generate_content with response_modalities=["AUDIO"]. The
+SpeechConfig surface is small but worth showing in full.
+
+  • response_modalities=["AUDIO"]
+    Switches the model to audio-only output. There is no plain-text
+    return; everything is in candidates[0].content.parts[0].inline_data.
+
+  • speech_config.voice_config.prebuilt_voice_config.voice_name="Kore"
+    The prebuilt voices are documented per-model. "Kore" is a
+    versatile, neutral default. Other prebuilt names: Aoede, Charon,
+    Fenrir, Leda, Orus, Puck, Zephyr, etc. Each renders the same
+    transcript with distinct prosody and timbre.
+    https://ai.google.dev/gemini-api/docs/speech-generation
+
+  • speech_config.language_code="en-US"
+    Hint to the model. Defaults to inferring from the prompt; setting
+    explicitly is more reliable for code-switched or short prompts.
+
+  • Output format: raw 24 kHz mono 16-bit PCM
+    Wrap in a WAV header before serving so browsers and audio editors
+    can play it directly. The wave module's writeframes() does the
+    little-endian framing for you.
 """
 
 import base64
@@ -38,12 +60,18 @@ def main(
         contents=prompt
         or "Say cheerfully and a touch conspiratorially: Have a wonderful day — and do tell me how it went.",
         config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
             response_modalities=["AUDIO"],
+            # ---- Voice ------------------------------------------------------
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice),
                 ),
+                language_code="en-US",     # explicit; defaults to inferred
             ),
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,
         ),
     )
 

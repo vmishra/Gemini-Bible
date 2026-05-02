@@ -5,7 +5,30 @@ SDK:     google-genai (unified Python SDK).
 Auth:    `gcloud auth application-default login` plus
          GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION in the environment.
 
-Diff vs AI Studio: only the client constructor.
+Diff vs AI Studio: only the client constructor. The request body is identical
+— enforced by tests/test_samples_surface_parity.py.
+
+WHY THIS SHAPE
+==============
+TTS rides on generate_content with response_modalities=["AUDIO"]. The
+SpeechConfig surface is small but worth showing in full.
+
+  • response_modalities=["AUDIO"]
+    Switches the model to audio-only output. There is no plain-text
+    return; everything is in candidates[0].content.parts[0].inline_data.
+
+  • speech_config.voice_config.prebuilt_voice_config.voice_name="Kore"
+    The prebuilt voices are documented per-model. "Kore" is a versatile,
+    neutral default. Other prebuilt names: Aoede, Charon, Fenrir, Leda,
+    Orus, Puck, Zephyr, etc.
+    https://cloud.google.com/vertex-ai/generative-ai/docs/speech/text-to-speech
+
+  • speech_config.language_code="en-US"
+    Hint to the model. Defaults to inferring from the prompt; setting
+    explicitly is more reliable for code-switched or short prompts.
+
+  • Output format: raw 24 kHz mono 16-bit PCM
+    Wrap in a WAV header before serving.
 """
 
 import base64
@@ -43,12 +66,18 @@ def main(
         contents=prompt
         or "Say cheerfully and a touch conspiratorially: Have a wonderful day — and do tell me how it went.",
         config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
             response_modalities=["AUDIO"],
+            # ---- Voice ------------------------------------------------------
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice),
                 ),
+                language_code="en-US",     # explicit; defaults to inferred
             ),
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,
         ),
     )
 

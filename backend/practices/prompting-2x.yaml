@@ -1,0 +1,49 @@
+# Gemini 2.5 prompting best practices.
+#
+# The 2.x family rewards different prompt shapes than 3.x — more elaborate,
+# more role-playing, more chain-of-thought scaffolding earn their tokens here.
+# Keep this file alive even after most users migrate; legacy 2.5 deployments
+# still need correct guidance.
+
+source:
+  url: https://ai.google.dev/gemini-api/docs/prompting-strategies
+  label: "Gemini API — Prompting strategies (2.5)"
+  as_of: "2026-04-30"
+
+applies_to:
+  model_families:
+    - gemini-2.5
+
+rules:
+  - id: role-prompting-helps
+    title: "Role prompting helps on 2.5"
+    rule: "Prefix prompts with a clear role (\"You are a senior staff engineer reviewing…\")."
+    quote: '"Assigning a role helps the model adopt the appropriate tone, vocabulary, and depth."'
+    why: "On 2.5, the role primer measurably steers tone and depth. (On 3.x it costs quality — see prompting-3x#be-precise-not-elaborate.)"
+    applies_when: >
+      The prompt is targeted at a Gemini 2.5 model AND lacks a role/persona
+      preamble for a task that benefits from one (technical review, creative
+      writing in a specific voice, expert summarisation).
+    severity: recommended
+
+  - id: thinking-budget-explicit
+    title: "Set thinking_budget explicitly"
+    rule: "Pass thinking_budget on every 2.5 call. Default is -1 (dynamic); set 0 to disable on Flash, or a positive int to cap."
+    quote: '"Thinking tokens bill at the output rate."'
+    why: "Dynamic thinking is convenient but can spike cost on simple prompts. An explicit budget makes spend predictable."
+    applies_when: >
+      The prompt is targeted at a Gemini 2.5 model AND thinking_budget is
+      unset or implicit. Especially relevant on 2.5 Flash where 0 is a
+      meaningful production value.
+    severity: informational
+
+  - id: chain-of-thought-still-works
+    title: "Chain-of-thought scaffolding still earns tokens"
+    rule: "On hard reasoning tasks, ask for step-by-step analysis explicitly (\"think through this step by step\")."
+    quote: '"Chain-of-thought prompting can significantly improve performance on reasoning tasks."'
+    why: "On 3.x the model thinks behind the scenes via thinking_level; on 2.5, explicit CoT in the prompt is still the lever."
+    applies_when: >
+      The prompt is targeted at a Gemini 2.5 model on a multi-step reasoning
+      task (math, multi-hop QA, debugging) without an explicit
+      step-by-step request.
+    severity: recommended

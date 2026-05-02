@@ -1,0 +1,98 @@
+# Gemini 3.x prompting best practices.
+#
+# Sourced from the Gemini 3 Developer Guide. Each rule contradicts a heuristic
+# that worked on 2.x — Gemini 3's reasoning model over-analyzes the prompt-
+# engineering tricks earlier models needed.
+#
+# `applies_when` is the heuristic the tuner LLM reads to decide if a rule fires.
+
+source:
+  url: https://ai.google.dev/gemini-api/docs/gemini-3#prompting_best_practices
+  label: "Gemini 3 Developer Guide — Prompting best practices"
+  as_of: "2026-04-30"
+
+applies_to:
+  model_families:
+    - gemini-3
+
+rules:
+  - id: be-precise-not-elaborate
+    title: "Be precise, not elaborate"
+    rule: "Be concise in your input prompts. Direct, clear instructions only."
+    quote: '"Verbose or overly complex prompt engineering" makes Gemini 3 over-analyze.'
+    why: "Old 2.x prompt-engineering tricks now cost quality on Gemini 3."
+    applies_when: >
+      The prompt contains motivational or persuasive language ("you are an
+      expert who…", "please carefully…"), elaborate role-play preambles, or
+      multi-paragraph instructions that could be reduced to one or two
+      direct sentences.
+    severity: recommended
+
+  - id: temperature-default
+    title: "Default temperature 1.0"
+    rule: "Keep temperature at the default value of 1.0."
+    quote: '"changing it may cause performance degradation"'
+    why: "Gemini 3 is calibrated for T=1.0. Forcing T=0 for determinism hurts reasoning and tool selection."
+    applies_when: >
+      The prompt explicitly mentions or implies a non-default temperature
+      setting (e.g. "use temperature 0", "be deterministic", "set temp=0.2").
+      Note: structured-output JSON is the legitimate exception — there
+      temperature=0.2 IS recommended.
+    severity: blocking
+
+  - id: verbosity-is-opt-in
+    title: "Verbosity is opt-in"
+    rule: "Default Gemini 3 is terse. Ask explicitly for conversational output if that's what you want."
+    quote: '"By default, Gemini 3 is less verbose and prefers providing direct, efficient answers."'
+    why: "Existing prompts that expected chatty output from 2.x will read as curt without an explicit verbosity prefix."
+    applies_when: >
+      The prompt's intent reads conversational or expects an essay-length
+      response, but the prompt does not explicitly ask for conversational/
+      verbose output. E.g. "Tell me about transformers" without "in a
+      conversational tone" or "give me a thorough explanation".
+    severity: recommended
+
+  - id: context-first-instruction-last
+    title: "Context first, instruction last"
+    rule: "On long prompts (book / codebase / long video), put the data first and the question at the end."
+    quote: '"When working with large datasets… place your specific instructions or questions at the end of the prompt."'
+    why: "Recency bias is real. Putting the instruction last keeps it fresh in the attention window after a long document. Anchor with phrases like 'Based on the information above…'."
+    applies_when: >
+      The prompt embeds a substantial document, code listing, or transcript
+      AND the question/instruction appears BEFORE that data block. Doesn't
+      apply to short prompts or when the instruction is already last.
+    severity: recommended
+
+  - id: tune-thinking-level-explicitly
+    title: "Tune thinking_level explicitly"
+    rule: "Set thinking_level on every 3.x call. Default is \"high\" — the most expensive setting."
+    quote: '"Thinking tokens bill at the output rate."'
+    why: "\"minimal\" / \"low\" cap the reasoning budget on Flash; reach for \"high\" only on hard reasoning tasks."
+    applies_when: >
+      The prompt or surrounding code mentions thinking_level being unset
+      OR set to "high" on a non-reasoning task (simple Q&A, format
+      conversion, summarisation).
+    severity: informational
+
+  - id: use-built-in-tools
+    title: "Use the built-in tools"
+    rule: "Enable Google Search for fresh facts; Code Execution for arithmetic; URL Context for citing a specific page."
+    quote: '"Letting the model run Python beats letting it reason its way to a number, even at the frontier."'
+    why: "Search-grounded answers carry citations; arithmetic-by-Python is reliable where reasoning-to-a-number isn't."
+    applies_when: >
+      The prompt asks for a current fact ("latest version of X", "current
+      price of Y") OR involves non-trivial arithmetic (>2-step math,
+      financial calculations) OR cites a specific URL — but the prompt
+      does not request the relevant built-in tool.
+    severity: recommended
+
+  - id: few-shot-non-optional
+    title: "Few-shot is non-optional for non-trivial format"
+    rule: "Include 2-4 input/output examples whenever the desired output has a specific shape, tone, or structure."
+    quote: '"Even with strong zero-shot capability, examples narrow output format and tone."'
+    why: "Especially load-bearing for structured output, classification, and consistent tool selection."
+    applies_when: >
+      The prompt asks for a specific output format (JSON shape, classification
+      label, specific tone) without providing any input/output examples.
+      Doesn't apply to open-ended creative or summarisation tasks.
+    severity: recommended

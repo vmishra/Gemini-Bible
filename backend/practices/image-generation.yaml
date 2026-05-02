@@ -1,0 +1,72 @@
+# Image generation (Nano Banana family) best practices.
+#
+# Sourced from Vertex AI's Gemini image-generation guide. Aimed at
+# gemini-3-pro-image-preview, gemini-3.1-flash-image-preview,
+# gemini-2.5-flash-image.
+
+source:
+  url: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/multimodal/gemini-image-generation-best-practices
+  label: "Vertex AI — Gemini image generation best practices"
+  as_of: "2026-04-30"
+
+applies_to:
+  model_families:
+    - gemini-3-pro-image
+    - gemini-3.1-flash-image
+    - gemini-2.5-flash-image
+
+rules:
+  - id: describe-what-you-want
+    title: "Describe what you want, not what you don't"
+    rule: "Lead with positive description. Banned-elements lists confuse the model more than they help."
+    quote: '"Use positive, descriptive language."'
+    why: "Negation is hard for diffusion-style generation; the named element gets attended to anyway. Spend tokens on the desired outcome."
+    applies_when: >
+      The prompt contains negation patterns ("no people", "without text",
+      "don't include…", "avoid …"). These often make the named element
+      MORE likely to appear.
+    severity: recommended
+
+  - id: be-specific
+    title: "Be specific — every detail buys control"
+    rule: "Specify subject, lighting, mood, lens, composition, and style."
+    quote: '"More details give you more control."'
+    why: "Sparse prompts get sparse images. Reference photographic terms (\"85mm portrait\", \"golden hour\", \"shallow depth of field\") for predictable results."
+    applies_when: >
+      The prompt is short and vague (e.g. "a banana", "a sunset") with no
+      lens / lighting / composition / mood details. Doesn't apply to
+      prompts that have already named these.
+    severity: recommended
+
+  - id: state-the-intent
+    title: "State the intent"
+    rule: "Tell the model the use case — \"generate an image of…\", \"for a marketing landing page\", \"magazine cover style\"."
+    quote: '"Explain the purpose of the image to help the model understand."'
+    why: "Intent is a strong steering signal that's cheap to add."
+    applies_when: >
+      The prompt describes the desired image but doesn't say what it's
+      FOR (marketing asset, technical illustration, mood board, social
+      thumbnail).
+    severity: informational
+
+  - id: step-by-step-complex-scenes
+    title: "Step-by-step for complex scenes"
+    rule: "Split a complex composition into ordered instructions (\"first…\", \"then…\", \"finally…\")."
+    quote: '"For complex scenes, split your request into steps."'
+    why: "A serial prompt orders the model's attention; one giant paragraph competes against itself."
+    applies_when: >
+      The prompt describes a multi-element composition (multiple subjects,
+      multiple lighting sources, layered foreground/midground/background)
+      as a single run-on description, without ordering markers like
+      "first / then / in the foreground / behind".
+    severity: recommended
+
+  - id: direct-the-camera
+    title: "Direct the camera explicitly"
+    rule: "Use cinematic and photographic vocabulary — \"wide-angle establishing shot\", \"macro\", \"rim light\", \"dutch angle\"."
+    quote: '"The model has been trained on labeled imagery."'
+    why: "Named camera moves and lighting setups resolve to consistent visual choices."
+    applies_when: >
+      The prompt has subject and mood but no explicit camera/lens/lighting
+      vocabulary. Doesn't apply to abstract or non-photographic styles.
+    severity: informational

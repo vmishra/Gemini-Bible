@@ -1,0 +1,49 @@
+# Structured (JSON) output best practices.
+#
+# Sourced from the Gemini structured-output guide. These rules apply
+# specifically when the prompt is meant to drive constrained-decoding
+# JSON output (response_mime_type="application/json" + response_schema).
+
+source:
+  url: https://ai.google.dev/gemini-api/docs/structured-output
+  label: "Gemini API — Structured output"
+  as_of: "2026-04-30"
+
+applies_to:
+  model_families:
+    - gemini-3
+    - gemini-2.5
+
+rules:
+  - id: temperature-low-for-json
+    title: "Lower temperature for JSON consistency"
+    rule: "Set temperature to 0.2 (down from default 1.0) when emitting JSON against a schema."
+    quote: "Lower temperature reduces JSON formatting drift on long arrays."
+    why: "The model commits to one tree shape early instead of resampling near the end of long arrays. The model still picks values; it stops second-guessing the schema."
+    applies_when: >
+      The prompt asks for JSON output / a structured response / a
+      schema-conformant answer, AND the prompt or surrounding code does
+      not explicitly set temperature below 1.0.
+    severity: recommended
+
+  - id: response-schema-pydantic
+    title: "Use Pydantic model_json_schema() as the schema source"
+    rule: "Pass `response_json_schema=YourPydanticModel.model_json_schema()` rather than hand-writing JSON Schema."
+    quote: "Pydantic schemas keep validation and constrained-decoding in lockstep."
+    why: "Hand-written JSON Schemas drift from your parser. Pydantic guarantees the schema you constrained the model to is exactly the schema you'll deserialise against."
+    applies_when: >
+      The prompt or surrounding code uses response_mime_type="application/
+      json" but passes a hand-written dict as response_schema instead of
+      generating it from a Pydantic model.
+    severity: informational
+
+  - id: field-descriptions-as-guidance
+    title: "Field descriptions ARE the prompt for that field"
+    rule: "Use Pydantic Field(description=...) to give per-field guidance. The model reads the descriptions as soft constraints."
+    quote: "Field descriptions are forwarded as per-field guidance to the model."
+    why: "A schema like {summary: str} produces wildly varied outputs. {summary: str = Field(description=\"One-line description, no preamble.\")} pins the shape."
+    applies_when: >
+      The prompt uses a response_schema where most fields lack
+      description= guidance. Especially relevant when the model's outputs
+      are stylistically inconsistent across runs.
+    severity: recommended

@@ -5,7 +5,38 @@ SDK:     google-genai (unified Python SDK).
 Auth:    `gcloud auth application-default login` plus
          GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION in the environment.
 
-Diff vs AI Studio: only the client constructor.
+Diff vs AI Studio: only the client constructor. The request body is identical
+— enforced by tests/test_samples_surface_parity.py.
+
+WHY THIS SHAPE
+==============
+Veo runs as a long-running operation (LRO). Generation takes 30-90s; you
+poll the operation until done, then download the MP4 by URI. Billing is
+per-second-of-output, NOT per-token — usage_metadata token counts are
+synthesised below for the host runner's accounting.
+
+  • client.models.generate_videos(model, prompt, config=GenerateVideosConfig(...))
+    Returns an operation immediately. The operation has a name and a
+    .done flag; .response is None until .done is True.
+    https://cloud.google.com/vertex-ai/generative-ai/docs/video/overview
+
+  • GenerateVideosConfig knobs (set explicitly):
+      aspect_ratio        — "16:9" / "9:16" / "1:1".
+      duration_seconds    — 4 / 6 / 8 (Veo 3.1 menu); cost scales linearly.
+      resolution          — "720p" / "1080p"; "4k" on Pro tiers.
+      person_generation   — DONT_ALLOW / ALLOW_ADULT / ALLOW_ALL.
+      number_of_videos    — 1-4 candidates; each is billed separately.
+      negative_prompt     — text the model is told to avoid.
+      enhance_prompt      — True = SDK rewrites prompt; off for eval runs.
+      generate_audio      — True = soundtrack alongside frames (Veo 3.1).
+      seed                — int for reproducibility.
+
+  • Poll cadence
+    8 seconds is a reasonable default — Veo rarely finishes <30s.
+
+  • Output handling
+    operation.response.generated_videos[0].video carries a server-side
+    URI. Call client.files.download then video.save(path).
 """
 
 import base64
@@ -15,6 +46,7 @@ import time
 from pathlib import Path
 
 from google import genai
+from google.genai import types
 
 
 def main(
@@ -36,6 +68,22 @@ def main(
     operation = client.models.generate_videos(
         model=model,
         prompt=text_prompt,
+        config=types.GenerateVideosConfig(
+            # ---- Frame shape ------------------------------------------------
+            aspect_ratio="16:9",        # cinematic; "9:16" for vertical
+            resolution="1080p",         # "720p" for the lite tier; "4k" on Pro
+            duration_seconds=8,         # 4 / 6 / 8 (Veo 3.1 menu)
+            # ---- Generation count -------------------------------------------
+            number_of_videos=1,         # 1-4; each candidate is billed
+            # ---- Content guidance -------------------------------------------
+            negative_prompt=None,
+            person_generation="ALLOW_ADULT",
+            # ---- Generation behaviour ---------------------------------------
+            enhance_prompt=True,
+            generate_audio=True,
+            # ---- Determinism ------------------------------------------------
+            seed=None,
+        ),
     )
 
     while not operation.done:

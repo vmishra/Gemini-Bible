@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from .auth import detect
 from .metrics import MetricsStore, _ASSET_NOTES, _PRICES, _USD_TO_INR
+from . import practices
 from .registry import load_all
 from .runner import RunRequest, run
 
@@ -144,4 +145,32 @@ def pricing() -> dict:
         "usd_to_inr": _USD_TO_INR,
         "as_of": "2026-04-30",
         "source_url": "https://ai.google.dev/pricing",
+    }
+
+
+@app.get("/api/practices")
+def list_practices(model: str | None = None) -> dict:
+    """Best-practices catalog. With ?model=, returns only the rules that
+    apply to that target model (filtered by family-prefix match)."""
+    rules = practices.rules_for_model(model) if model else practices.all_rules()
+    return {
+        "model": model,
+        "count": len(rules),
+        "rules": [
+            {
+                "anchor": r.anchor,
+                "id": r.id,
+                "file_stem": r.file_stem,
+                "title": r.title,
+                "rule": r.rule,
+                "quote": r.quote,
+                "why": r.why,
+                "applies_when": r.applies_when,
+                "severity": r.severity,
+                "source_url": r.source_url,
+                "source_label": r.source_label,
+                "source_as_of": r.source_as_of,
+            }
+            for r in rules
+        ],
     }

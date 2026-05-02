@@ -474,3 +474,31 @@ def test_music_lyria_pro_sets_wav_mime(mock_client):
     _import("music/lyria/python/ai_studio.py").main(model="lyria-3-pro-preview")
     cfg = _generate_content_config(captured)
     assert cfg.response_mime_type == "audio/wav"
+
+
+# ---------------------------------------------------------------------------
+# video/veo
+# ---------------------------------------------------------------------------
+
+def test_video_veo_lro_choreography_and_config(mock_client):
+    _, captured = mock_client
+    _import("video/veo/python/ai_studio.py").main()
+
+    paths = [p for p, _ in captured.calls]
+    # generate_videos kicks off the LRO; operations.get polls; files.download
+    # materialises the result.
+    assert paths[0] == "models.generate_videos"
+    assert "operations.get" in paths
+    assert "files.download" in paths
+
+    gen_kwargs = next(kw for p, kw in captured.calls if p == "models.generate_videos")
+    cfg = gen_kwargs.get("config")
+    assert cfg is not None
+    assert cfg.aspect_ratio == "16:9"
+    assert cfg.resolution == "1080p"
+    assert cfg.duration_seconds == 8
+    assert cfg.number_of_videos == 1
+    pg = cfg.person_generation
+    assert getattr(pg, "value", pg) == "ALLOW_ADULT"
+    assert cfg.enhance_prompt is True
+    assert cfg.generate_audio is True

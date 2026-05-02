@@ -199,3 +199,29 @@ def test_text_structured_output_low_temperature_and_schema(mock_client):
     # Schema came from ChangeReview.model_json_schema(); top-level shape check.
     assert cfg.response_json_schema.get("type") == "object"
     assert "decision" in cfg.response_json_schema.get("properties", {})
+
+
+# ---------------------------------------------------------------------------
+# text/chat
+# ---------------------------------------------------------------------------
+
+def test_text_chat_knobs_live_on_chats_create(mock_client):
+    """The full GenerateContentConfig must be passed to chats.create — not
+    repeated on each send_message."""
+    _, captured = mock_client
+    _import("text/chat/python/ai_studio.py").main()
+
+    create_calls = [(p, kw) for p, kw in captured.calls if p == "chats.create"]
+    send_calls = [(p, kw) for p, kw in captured.calls if p == "chat.send_message"]
+    assert len(create_calls) == 1, "chats.create must be invoked exactly once"
+    assert len(send_calls) >= 1, "at least one send_message expected"
+
+    cfg = create_calls[0][1].get("config")
+    assert cfg is not None
+    assert cfg.temperature == 1.0
+    assert cfg.thinking_config.thinking_level.value == "MEDIUM"
+
+    # send_message calls should not pass their own config (overrides only when
+    # genuinely needed; the default sample doesn't need them).
+    for _, kw in send_calls:
+        assert "config" not in kw or kw.get("config") is None

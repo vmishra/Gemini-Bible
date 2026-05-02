@@ -95,3 +95,30 @@ def test_text_basic_thinking_routes_to_2_5_budget(mock_client):
     # thinking_level is unset (None) on Gemini 2.5; thinking_budget=-1 (dynamic).
     assert cfg.thinking_config.thinking_budget == -1
     assert cfg.thinking_config.thinking_level is None
+
+
+# ---------------------------------------------------------------------------
+# text/system-instruction
+# ---------------------------------------------------------------------------
+
+def test_text_system_instruction_persona_lives_on_config(mock_client):
+    """The persona must reach the config object, not the contents string."""
+    _, captured = mock_client
+    mod = _import("text/system-instruction/python/ai_studio.py")
+    mod.main()
+    cfg = _generate_content_config(captured)
+    assert cfg.system_instruction is not None
+    # Match the constant exported from the module so future copy edits to
+    # the persona stay in sync without updating the test value.
+    assert cfg.system_instruction == mod.SYSTEM_INSTRUCTION
+
+
+def test_text_system_instruction_inherits_basic_defaults(mock_client):
+    """Knob defaults match text/basic — only system_instruction deviates."""
+    _, captured = mock_client
+    _import("text/system-instruction/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+    assert cfg.temperature == 1.0
+    assert cfg.top_p == 0.95
+    assert cfg.top_k == 64
+    assert cfg.thinking_config.thinking_level.value == "MEDIUM"

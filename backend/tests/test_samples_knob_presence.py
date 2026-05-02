@@ -248,3 +248,25 @@ def test_text_thinking_2_5_fallback_budget(mock_client):
     assert cfg.thinking_config.thinking_budget == 2048
     assert cfg.thinking_config.thinking_level is None
     assert cfg.thinking_config.include_thoughts is True
+
+
+# ---------------------------------------------------------------------------
+# text/tool-call
+# ---------------------------------------------------------------------------
+
+def test_text_tool_call_tools_and_mode_auto(mock_client):
+    _, captured = mock_client
+    mod = _import("text/tool-call/python/ai_studio.py")
+    mod.main()
+    cfg = _generate_content_config(captured)
+
+    # tools list contains the two Python functions defined in the module.
+    assert cfg.tools is not None and len(cfg.tools) == 2
+    fn_names = [getattr(t, "__name__", None) for t in cfg.tools]
+    assert "get_current_temperature" in fn_names
+    assert "get_packing_advice" in fn_names
+
+    # tool_config.function_calling_config.mode == AUTO (default, explicit here).
+    assert cfg.tool_config is not None
+    assert cfg.tool_config.function_calling_config is not None
+    assert cfg.tool_config.function_calling_config.mode.value == "AUTO"

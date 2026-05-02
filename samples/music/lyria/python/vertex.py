@@ -1,11 +1,37 @@
-"""Music generation (Lyria) — Vertex AI.
+"""Music generation (Lyria clip mode) — Vertex AI.
 
 Surface: Vertex AI (ADC + project-scoped).
 SDK:     google-genai (unified Python SDK).
 Auth:    `gcloud auth application-default login` plus
          GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION in the environment.
 
-Diff vs AI Studio: only the client constructor.
+Diff vs AI Studio: only the client constructor. The request body is identical
+— enforced by tests/test_samples_surface_parity.py.
+
+WHY THIS SHAPE
+==============
+Lyria clip generation rides on generate_content with both AUDIO and TEXT
+modalities — the model can return both an audio clip and lyrics or section
+labels. The richer Lyria interface (weighted prompts, bpm/scale/density
+knobs, realtime streaming) lives in client.aio.live.connect with a
+lyria-realtime-* model — a separate sample, not yet covered.
+
+  • response_modalities=["AUDIO", "TEXT"]
+    The clip-mode endpoint returns audio inline_data parts AND text parts
+    (lyrics / structural labels). Iterate every part and dispatch by
+    inline_data vs text — order is not guaranteed.
+    https://cloud.google.com/vertex-ai/generative-ai/docs/music/overview
+
+  • response_mime_type
+    Pro tier returns 16-bit PCM WAV; Clip preview returns MP3.
+
+  • temperature=1.0, sampling defaults preserved
+    Music benefits from variance — lower temperatures push toward
+    repetitive loops.
+
+  • Output handling
+    Audio bytes arrive base64 from the SDK in some configurations and
+    raw bytes in others. The walk below handles both.
 """
 
 import base64
@@ -31,14 +57,22 @@ def main(
         "no vocals. Modern, calm, optimistic."
     )
 
-    config = types.GenerateContentConfig(response_modalities=["AUDIO", "TEXT"])
-    if "pro" in model:
-        config.response_mime_type = "audio/wav"
-
     response = client.models.generate_content(
         model=model,
         contents=text_prompt,
-        config=config,
+        config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
+            response_modalities=["AUDIO", "TEXT"],
+            # ---- Output codec -----------------------------------------------
+            response_mime_type="audio/wav" if "pro" in model else None,
+            # ---- Sampling ---------------------------------------------------
+            temperature=1.0,            # default 1.0 preserved — music wants variance
+            top_p=0.95,                 # default 0.95
+            candidate_count=1,          # default 1
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,                  # set int for reproducible test clips
+        ),
     )
 
     audio_clips: list[dict] = []

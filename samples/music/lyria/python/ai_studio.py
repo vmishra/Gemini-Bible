@@ -1,12 +1,35 @@
-"""Music generation (Lyria) — Gemini Developer API (AI Studio).
+"""Music generation (Lyria clip mode) — Gemini Developer API (AI Studio).
 
 Surface: AI Studio (api-key authenticated).
 SDK:     google-genai (unified Python SDK).
 Auth:    GEMINI_API_KEY in the environment.
 
-The response can carry both audio parts (the music itself) and text
-parts (lyrics, section labels). Iterate every part and dispatch by
-inline_data vs text.
+WHY THIS SHAPE
+==============
+Lyria clip generation rides on generate_content with both AUDIO and TEXT
+modalities — the model can return both an audio clip and lyrics or section
+labels. The richer Lyria interface (weighted prompts, bpm/scale/density
+knobs, realtime streaming) lives in client.aio.live.connect with a
+lyria-realtime-* model — that's a separate sample, not yet covered.
+
+  • response_modalities=["AUDIO", "TEXT"]
+    The clip-mode endpoint returns audio inline_data parts AND text parts
+    (lyrics / structural labels). Iterate every part and dispatch by
+    inline_data vs text — order is not guaranteed.
+    https://ai.google.dev/gemini-api/docs/music
+
+  • response_mime_type
+    Pro tier returns 16-bit PCM WAV; Clip preview returns MP3. Set
+    "audio/wav" on Pro for lossless; let the default ride on Clip.
+
+  • temperature=1.0, sampling defaults preserved
+    Music benefits from variance — lower temperatures here push toward
+    repetitive loops. Don't tighten unless you specifically want
+    deterministic output for evaluation.
+
+  • Output handling
+    Audio bytes arrive base64 from the SDK in some configurations and
+    raw bytes in others. The walk below handles both.
 """
 
 import base64
@@ -27,15 +50,24 @@ def main(
         "no vocals. Modern, calm, optimistic."
     )
 
-    # Pro supports WAV; Clip is MP3-only.
-    config = types.GenerateContentConfig(response_modalities=["AUDIO", "TEXT"])
-    if "pro" in model:
-        config.response_mime_type = "audio/wav"
-
+    # Pro supports WAV; Clip is MP3-only. Build the config conditionally so the
+    # mime_type only appears on the Pro path.
     response = client.models.generate_content(
         model=model,
         contents=text_prompt,
-        config=config,
+        config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
+            response_modalities=["AUDIO", "TEXT"],
+            # ---- Output codec -----------------------------------------------
+            response_mime_type="audio/wav" if "pro" in model else None,
+            # ---- Sampling ---------------------------------------------------
+            temperature=1.0,            # default 1.0 preserved — music wants variance
+            top_p=0.95,                 # default 0.95
+            candidate_count=1,          # default 1
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,                  # set int for reproducible test clips
+        ),
     )
 
     audio_clips: list[dict] = []

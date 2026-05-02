@@ -122,3 +122,34 @@ def test_text_system_instruction_inherits_basic_defaults(mock_client):
     assert cfg.top_p == 0.95
     assert cfg.top_k == 64
     assert cfg.thinking_config.thinking_level.value == "MEDIUM"
+
+
+# ---------------------------------------------------------------------------
+# text/streaming
+# ---------------------------------------------------------------------------
+
+def _streaming_config(captured):
+    """Streaming uses generate_content_stream, not generate_content."""
+    for path, kwargs in reversed(captured.calls):
+        if path == "models.generate_content_stream":
+            return kwargs.get("config")
+    raise AssertionError("no models.generate_content_stream call was captured")
+
+
+def test_text_streaming_uses_stream_method(mock_client):
+    _, captured = mock_client
+    _import("text/streaming/python/ai_studio.py").main()
+    paths = [p for p, _ in captured.calls]
+    assert "models.generate_content_stream" in paths
+    assert "models.generate_content" not in paths
+
+
+def test_text_streaming_capped_output_tokens(mock_client):
+    """The streaming sample bounds max_output_tokens for snappier TTFT."""
+    _, captured = mock_client
+    _import("text/streaming/python/ai_studio.py").main()
+    cfg = _streaming_config(captured)
+    assert cfg.max_output_tokens == 2048
+    # Other knobs match basic.
+    assert cfg.temperature == 1.0
+    assert cfg.thinking_config.thinking_level.value == "MEDIUM"

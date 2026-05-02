@@ -380,9 +380,11 @@ can be reverted without disturbing the rest.
 1. Both surface twins for the sample swept to the canonical form above.
 2. Top-of-file `WHY THIS SHAPE` stanza naming the non-trivial knob
    choices, with citation URLs.
-3. Per-knob inline multi-line comments — comments are maximized, not
-   minimized. A reader scanning a single file should be able to learn
-   the entire knob surface for that family.
+3. Per-knob inline comment (one-liner, may wrap to two lines for long
+   rationales) plus the top-of-file `WHY THIS SHAPE` stanza covering
+   family-level patterns. A reader scanning a single file should be able
+   to learn the entire knob surface for that family from the
+   combination.
 4. Knob-presence tests added; all tests green (`pytest backend/tests/`).
 5. `ruff check backend/` clean.
 6. Sample still consumed correctly by the existing host runner —

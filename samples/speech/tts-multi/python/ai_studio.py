@@ -4,8 +4,29 @@ Surface: AI Studio (api-key authenticated).
 SDK:     google-genai (unified Python SDK).
 Auth:    GEMINI_API_KEY in the environment.
 
-The speaker labels in the prompt body must match the SpeakerVoiceConfig
-entries below ('Joe' and 'Jane' here).
+WHY THIS SHAPE
+==============
+Multi-speaker mode swaps speech_config.voice_config for
+speech_config.multi_speaker_voice_config. The two are mutually exclusive —
+setting both raises. See speech/tts-single for the single-voice form.
+
+  • response_modalities=["AUDIO"]
+    Same as tts-single — switches the model to audio output.
+
+  • speech_config.multi_speaker_voice_config.speaker_voice_configs
+    A list of (speaker_label, voice_config) pairs. The speaker labels in
+    the prompt body must match these labels exactly ("Joe:" / "Jane:" in
+    the dialogue script below). Bracketed direction cues ("[excitedly]")
+    inflect the same voice; they do NOT switch speakers.
+    https://ai.google.dev/gemini-api/docs/speech-generation#multi-speaker
+
+  • Voice catalog
+    Each speaker entry uses a PrebuiltVoiceConfig with a voice_name. Pick
+    distinct voices for distinct speakers — the model does not enforce
+    uniqueness and will happily render two speakers with the same voice.
+
+  • Output format
+    Same as tts-single: raw 24 kHz mono 16-bit PCM, wrapped in WAV.
 """
 
 import base64
@@ -44,7 +65,9 @@ def main(
         model=model,
         contents=prompt or DIALOGUE,
         config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
             response_modalities=["AUDIO"],
+            # ---- Multi-speaker voices ---------------------------------------
             speech_config=types.SpeechConfig(
                 multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
                     speaker_voice_configs=[
@@ -62,7 +85,11 @@ def main(
                         ),
                     ],
                 ),
+                language_code="en-US",     # explicit; defaults to inferred
             ),
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,
         ),
     )
 

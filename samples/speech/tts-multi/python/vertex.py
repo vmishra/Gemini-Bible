@@ -5,7 +5,32 @@ SDK:     google-genai (unified Python SDK).
 Auth:    `gcloud auth application-default login` plus
          GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION in the environment.
 
-Diff vs AI Studio: only the client constructor.
+Diff vs AI Studio: only the client constructor. The request body is identical
+— enforced by tests/test_samples_surface_parity.py.
+
+WHY THIS SHAPE
+==============
+Multi-speaker mode swaps speech_config.voice_config for
+speech_config.multi_speaker_voice_config. The two are mutually exclusive —
+setting both raises. See speech/tts-single for the single-voice form.
+
+  • response_modalities=["AUDIO"]
+    Same as tts-single — switches the model to audio output.
+
+  • speech_config.multi_speaker_voice_config.speaker_voice_configs
+    A list of (speaker_label, voice_config) pairs. The speaker labels in
+    the prompt body must match these labels exactly. Bracketed direction
+    cues ("[excitedly]") inflect the same voice; they do NOT switch
+    speakers.
+    https://cloud.google.com/vertex-ai/generative-ai/docs/speech/text-to-speech
+
+  • Voice catalog
+    Each speaker entry uses a PrebuiltVoiceConfig with a voice_name. Pick
+    distinct voices for distinct speakers — the model does not enforce
+    uniqueness.
+
+  • Output format
+    Same as tts-single: raw 24 kHz mono 16-bit PCM, wrapped in WAV.
 """
 
 import base64
@@ -49,7 +74,9 @@ def main(
         model=model,
         contents=prompt or DIALOGUE,
         config=types.GenerateContentConfig(
+            # ---- Modality routing (the deviation) ---------------------------
             response_modalities=["AUDIO"],
+            # ---- Multi-speaker voices ---------------------------------------
             speech_config=types.SpeechConfig(
                 multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
                     speaker_voice_configs=[
@@ -67,7 +94,11 @@ def main(
                         ),
                     ],
                 ),
+                language_code="en-US",     # explicit; defaults to inferred
             ),
+            # ---- Safety / Determinism (defaults) ----------------------------
+            safety_settings=None,
+            seed=None,
         ),
     )
 

@@ -221,7 +221,34 @@ class _LiveConnect:
 # Stub client builder
 # ---------------------------------------------------------------------------
 
-def _build_stub_client(captured) -> SimpleNamespace:
+# ---------------------------------------------------------------------------
+# Programmable response bus — tests can queue up the next generate_content
+# response so the tuner / judge tests get the exact JSON they need without
+# hand-patching the canned response factory.
+# ---------------------------------------------------------------------------
+
+class _ResponseQueue:
+    """FIFO queue of responses for generate_content. Each entry is either a
+    string (becomes response.text) or a SimpleNamespace (used verbatim)."""
+    def __init__(self):
+        self._queue: list = []
+
+    def push(self, text_or_response) -> None:
+        self._queue.append(text_or_response)
+
+    def pop_or_default(self):
+        if self._queue:
+            entry = self._queue.pop(0)
+            if isinstance(entry, str):
+                # Replace the canned text with this string; keep candidates/usage.
+                resp = _text_response()
+                resp.text = entry
+                return resp
+            return entry
+        return _text_response()
+
+
+def _build_stub_client(captured, response_queue=None) -> SimpleNamespace:
     # The Veo LRO progresses to done after one operations.get call. Tracked
     # in a small per-fixture dict so multiple LROs in one test still work.
     op_state: dict[str, Any] = {"polled": False}
@@ -236,6 +263,8 @@ def _build_stub_client(captured) -> SimpleNamespace:
 
     def generate_content(*args, **kwargs):
         _record("models.generate_content", args, kwargs)
+        if response_queue is not None:
+            return response_queue.pop_or_default()
         return _text_response()
 
     def generate_content_stream(*args, **kwargs):
@@ -306,9 +335,14 @@ def _build_stub_client(captured) -> SimpleNamespace:
 @pytest.fixture
 def mock_client(monkeypatch):
     """Returns (stub_client, captured). After yielding, every call any sample
-    makes through `genai.Client()` lands in `captured.calls`."""
-    captured = SimpleNamespace(calls=[])
-    stub = _build_stub_client(captured)
+    makes through `genai.Client()` lands in `captured.calls`.
+
+    For tuner/judge tests, captured.responses.push(text_or_namespace) queues
+    the next generate_content response so each call site can return the
+    exact JSON the test expects.
+    """
+    captured = SimpleNamespace(calls=[], responses=_ResponseQueue())
+    stub = _build_stub_client(captured, response_queue=captured.responses)
 
     monkeypatch.setattr("google.genai.Client", lambda **_: stub)
 

@@ -21,9 +21,10 @@ LLM-supplied hunks reconstruct cleanly before returning anything.
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 HunkOp = Literal["replace", "insert", "delete"]
 
@@ -265,3 +266,163 @@ def estimate_cost(
 
     total = sum(leg.usd for leg in legs)
     return CostEstimate(legs=legs, total_usd=total, run_ab=run_ab, notes=notes)
+
+
+# ---------------------------------------------------------------------------
+# Tuner pipeline
+# ---------------------------------------------------------------------------
+
+# Hard cap on hunks per tune — keeps the diff readable and bounds the
+# downstream judge cost (judge scores each rule independently).
+MAX_HUNKS_PER_TUNE = 5
+
+
+class TunerResponse(BaseModel):
+    """The structured-output schema we hand to the tuner LLM."""
+    hunks: list[DiffHunk] = Field(
+        ...,
+        max_length=MAX_HUNKS_PER_TUNE,
+        description=f"At most {MAX_HUNKS_PER_TUNE} surgical edits to the original prompt.",
+    )
+
+
+class TuneResult(BaseModel):
+    """End-to-end result of the tuner pipeline (without the optional A/B step)."""
+    original: str
+    tuned: str
+    hunks: list[DiffHunk]
+    rules_considered: list[str]            # anchor IDs the tuner had access to
+
+
+TUNER_SYSTEM_INSTRUCTION = """\
+You are a prompt linter for Gemini models. Your job is to apply a curated
+set of best-practice RULES to a user's prompt and emit ≤5 surgical edits.
+
+You will receive:
+  - the user's PROMPT (the input to lint)
+  - a JSON list of RULES, each with id, title, rule, why, applies_when
+
+For each rule whose `applies_when` heuristic actually fires for this
+prompt, emit ONE DiffHunk with:
+  - op: "replace" | "insert" | "delete"
+  - before: a UNIQUE substring of the original prompt to anchor the edit
+            (must appear EXACTLY ONCE in the original)
+  - after: the replacement text (use the empty string for delete; for
+            insert, set `before` to a unique anchor span and put that
+            anchor inside `after` so the result preserves it)
+  - rule_anchor: the rule's `<file_stem>#<id>` (verbatim from the rules list)
+  - rationale: ONE paragraph explaining why this rule fires here
+
+Hard rules:
+  - Output AT MOST 5 hunks. Pick the highest-impact ones first.
+  - Hunks must NOT overlap each other in the original prompt.
+  - `before` must match the original exactly once. If you can't find a
+    unique anchor, skip the rule rather than guessing.
+  - Only cite rule_anchors from the supplied list. Do not invent rules.
+  - Do NOT rewrite the whole prompt. The point is targeted, justified
+    edits — not a from-scratch rewrite.
+
+If the prompt is already well-formed for the target model, return an
+empty hunks list. That is a valid, expected outcome.
+"""
+
+
+class TunerCallError(Exception):
+    """Raised when the tuner's structured response is unusable."""
+
+
+def _build_tuner_payload(prompt: str, rules: list) -> str:
+    """Construct the user-message payload the tuner sees: the prompt plus a
+    JSON-serialised view of the applicable rules."""
+    rules_view = [
+        {
+            "anchor": r.anchor,
+            "title": r.title,
+            "rule": r.rule,
+            "why": r.why,
+            "applies_when": r.applies_when,
+            "severity": r.severity,
+        }
+        for r in rules
+    ]
+    return (
+        "<prompt>\n"
+        f"{prompt}\n"
+        "</prompt>\n\n"
+        "<rules>\n"
+        f"{json.dumps(rules_view, indent=2)}\n"
+        "</rules>"
+    )
+
+
+def tune_prompt(
+    *,
+    prompt: str,
+    target_model: str,
+    tuner_model: str | None = None,
+    client=None,
+) -> TuneResult:
+    """Run the tuner pipeline end-to-end and return a TuneResult.
+
+    `client` is injectable for tests (defaults to genai.Client()). The
+    function:
+      1. Loads rules_for_model(target_model) from the catalog.
+      2. Calls tuner_model with response_json_schema = TunerResponse.
+      3. Validates every hunk's rule_anchor exists; stamps the catalog quote.
+      4. Applies the hunks deterministically to produce `tuned`.
+    """
+    from . import practices
+
+    rules = practices.rules_for_model(target_model)
+    rules_considered = [r.anchor for r in rules]
+
+    if client is None:
+        from google import genai
+        client = genai.Client()
+
+    from google.genai import types as genai_types
+
+    payload = _build_tuner_payload(prompt, rules)
+    config = genai_types.GenerateContentConfig(
+        system_instruction=TUNER_SYSTEM_INSTRUCTION,
+        response_mime_type="application/json",
+        response_json_schema=TunerResponse.model_json_schema(),
+        temperature=0.2,                       # JSON consistency, see structured-output sample
+        max_output_tokens=TUNER_MAX_OUTPUT,
+    )
+    response = client.models.generate_content(
+        model=tuner_model or target_model,
+        contents=payload,
+        config=config,
+    )
+
+    text = getattr(response, "text", None)
+    if not text:
+        raise TunerCallError("tuner returned empty response.text")
+
+    try:
+        parsed = json.loads(text)
+        tuner_resp = TunerResponse.model_validate(parsed)
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise TunerCallError(f"tuner response is not valid TunerResponse JSON: {exc}") from exc
+
+    # Validate + stamp catalog metadata onto each hunk.
+    for hunk in tuner_resp.hunks:
+        rule = practices.rule_by_id(hunk.rule_anchor)
+        if rule is None:
+            raise TunerCallError(
+                f"tuner cited unknown rule anchor {hunk.rule_anchor!r}; "
+                f"applicable rules were {rules_considered}"
+            )
+        hunk.quote = rule.quote
+
+    # Apply deterministically. apply_hunks raises DiffApplyError on bad hunks
+    # — let it propagate so /api/tune surfaces a clean 422.
+    tuned = apply_hunks(prompt, tuner_resp.hunks)
+
+    return TuneResult(
+        original=prompt,
+        tuned=tuned,
+        hunks=tuner_resp.hunks,
+        rules_considered=rules_considered,
+    )

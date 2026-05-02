@@ -411,3 +411,21 @@ def test_image_nano_banana_modalities_and_image_config(mock_client):
     pg = cfg.image_config.person_generation
     assert getattr(pg, "value", pg) == "ALLOW_ADULT"
     assert cfg.image_config.output_mime_type == "image/png"
+
+
+# ---------------------------------------------------------------------------
+# speech/tts-single
+# ---------------------------------------------------------------------------
+
+def test_speech_tts_single_audio_modality_and_voice(mock_client):
+    _, captured = mock_client
+    _import("speech/tts-single/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+
+    mods = [getattr(m, "value", m) for m in (cfg.response_modalities or [])]
+    assert "AUDIO" in mods
+
+    sc = cfg.speech_config
+    assert sc is not None
+    assert sc.voice_config.prebuilt_voice_config.voice_name == "Kore"
+    assert sc.language_code == "en-US"

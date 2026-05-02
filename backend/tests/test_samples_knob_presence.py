@@ -375,3 +375,19 @@ def test_text_context_cache_create_config(mock_client):
     assert "internal staff engineer" in cfg.system_instruction
     assert cfg.contents is not None and len(cfg.contents) >= 1
     assert cfg.ttl == "120s"
+
+
+# ---------------------------------------------------------------------------
+# embeddings/basic
+# ---------------------------------------------------------------------------
+
+def test_embeddings_basic_config(mock_client):
+    _, captured = mock_client
+    _import("embeddings/basic/python/ai_studio.py").main()
+    embed_kwargs = next(kw for p, kw in captured.calls if p == "models.embed_content")
+    cfg = embed_kwargs.get("config")
+    assert cfg is not None
+    assert cfg.task_type.value == "SEMANTIC_SIMILARITY"
+    assert cfg.output_dimensionality == 768
+    assert cfg.title is None
+    assert cfg.auto_truncate is True

@@ -74,10 +74,56 @@ def _usage_metadata() -> SimpleNamespace:
     return obj
 
 
-def _text_response() -> SimpleNamespace:
-    candidate = SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))
+def _content_parts() -> list[SimpleNamespace]:
+    """Mixed parts: a media inline (audio PCM-shaped bytes that also stand in
+    for image bytes since samples don't validate mime) followed by a text
+    part. parts[0] must carry inline_data because tts samples access it
+    positionally."""
+    media_inline = SimpleNamespace(
+        mime_type="audio/L16;rate=24000",
+        data=b"\x00" * 1024,
+    )
+    media_part = SimpleNamespace(text=None, inline_data=media_inline)
+    text_part = SimpleNamespace(text="canned text part", inline_data=None)
+    return [media_part, text_part]
+
+
+def _grounding_metadata() -> SimpleNamespace:
+    """Covers both grounding-search (web chunks) and grounding-maps (maps
+    chunks) by including one of each in grounding_chunks."""
+    web_chunk = SimpleNamespace(
+        web=SimpleNamespace(
+            uri="https://example.invalid/source",
+            title="Canned source",
+        ),
+        maps=None,
+    )
+    maps_chunk = SimpleNamespace(
+        web=None,
+        maps=SimpleNamespace(
+            uri="https://maps.google.com/?cid=canned",
+            title="Canned place",
+            place_id="canned-place-id",
+            placeId="canned-place-id",
+        ),
+    )
     return SimpleNamespace(
-        text="canned response text",
+        web_search_queries=["canned query"],
+        grounding_chunks=[web_chunk, maps_chunk],
+        grounding_supports=[],
+    )
+
+
+def _text_response() -> SimpleNamespace:
+    candidate = SimpleNamespace(
+        finish_reason=SimpleNamespace(name="STOP"),
+        content=SimpleNamespace(parts=_content_parts()),
+        grounding_metadata=_grounding_metadata(),
+    )
+    return SimpleNamespace(
+        # Valid JSON so structured-output's json.loads(response.text) succeeds.
+        # Plain-text consumers just stuff this into their dict; harmless.
+        text='{"answer": "canned"}',
         candidates=[candidate],
         usage_metadata=_usage_metadata(),
     )
@@ -268,5 +314,12 @@ def mock_client(monkeypatch):
 
     # LRO poll loops sleep — neutralise so smoke tests run instantly.
     monkeypatch.setattr("time.sleep", lambda *a, **k: None)
+
+    # Vertex samples read GOOGLE_CLOUD_PROJECT / LOCATION from the environment
+    # to construct Client(vertexai=True, project=..., location=...). The Client
+    # constructor itself is mocked so the values are never used by the SDK,
+    # but the os.environ[...] access must succeed.
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
     return stub, captured

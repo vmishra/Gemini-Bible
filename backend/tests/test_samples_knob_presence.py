@@ -429,3 +429,23 @@ def test_speech_tts_single_audio_modality_and_voice(mock_client):
     assert sc is not None
     assert sc.voice_config.prebuilt_voice_config.voice_name == "Kore"
     assert sc.language_code == "en-US"
+
+
+# ---------------------------------------------------------------------------
+# speech/tts-multi
+# ---------------------------------------------------------------------------
+
+def test_speech_tts_multi_speaker_voices(mock_client):
+    _, captured = mock_client
+    _import("speech/tts-multi/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+
+    sc = cfg.speech_config
+    assert sc.multi_speaker_voice_config is not None
+    speakers = sc.multi_speaker_voice_config.speaker_voice_configs
+    assert len(speakers) == 2
+
+    by_label = {s.speaker: s.voice_config.prebuilt_voice_config.voice_name for s in speakers}
+    assert by_label == {"Joe": "Kore", "Jane": "Puck"}
+    # Mutually exclusive — single-speaker voice_config must be unset here.
+    assert sc.voice_config is None

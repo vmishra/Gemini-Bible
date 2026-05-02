@@ -289,3 +289,30 @@ def test_text_tool_call_chat_tools_on_chats_create(mock_client):
     assert cfg.tool_config.function_calling_config.mode.value == "AUTO"
     assert cfg.system_instruction is not None
     assert "travel assistant" in cfg.system_instruction
+
+
+# ---------------------------------------------------------------------------
+# text/grounding-search
+# ---------------------------------------------------------------------------
+
+def test_text_grounding_search_tool_and_block_none(mock_client):
+    _, captured = mock_client
+    _import("text/grounding-search/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+
+    # google_search tool present.
+    assert cfg.tools is not None and len(cfg.tools) == 1
+    tool = cfg.tools[0]
+    assert tool.google_search is not None
+
+    # safety_settings = BLOCK_NONE on all four categories.
+    assert cfg.safety_settings is not None and len(cfg.safety_settings) == 4
+    for ss in cfg.safety_settings:
+        assert ss.threshold.value == "BLOCK_NONE"
+    cats = sorted(ss.category.value for ss in cfg.safety_settings)
+    assert cats == sorted([
+        "HARM_CATEGORY_HARASSMENT",
+        "HARM_CATEGORY_HATE_SPEECH",
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "HARM_CATEGORY_DANGEROUS_CONTENT",
+    ])

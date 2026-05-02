@@ -387,7 +387,8 @@ def test_embeddings_basic_config(mock_client):
     embed_kwargs = next(kw for p, kw in captured.calls if p == "models.embed_content")
     cfg = embed_kwargs.get("config")
     assert cfg is not None
-    assert cfg.task_type.value == "SEMANTIC_SIMILARITY"
+    # SDK keeps task_type as the raw string here (no enum coercion).
+    assert cfg.task_type == "SEMANTIC_SIMILARITY"
     assert cfg.output_dimensionality == 768
     assert cfg.title is None
     assert cfg.auto_truncate is True

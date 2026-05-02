@@ -182,3 +182,20 @@ def test_text_multimodal_response_modalities_text_explicit(mock_client):
     # response_modalities is coerced to a list of MediaModality enum values.
     mods = [getattr(m, "value", m) for m in (cfg.response_modalities or [])]
     assert "TEXT" in mods
+
+
+# ---------------------------------------------------------------------------
+# text/structured-output
+# ---------------------------------------------------------------------------
+
+def test_text_structured_output_low_temperature_and_schema(mock_client):
+    """The signature deviations: temp=0.2 and a JSON schema bound to the model."""
+    _, captured = mock_client
+    _import("text/structured-output/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+    assert cfg.temperature == 0.2
+    assert cfg.response_mime_type == "application/json"
+    assert cfg.response_json_schema is not None
+    # Schema came from ChangeReview.model_json_schema(); top-level shape check.
+    assert cfg.response_json_schema.get("type") == "object"
+    assert "decision" in cfg.response_json_schema.get("properties", {})

@@ -449,3 +449,28 @@ def test_speech_tts_multi_speaker_voices(mock_client):
     assert by_label == {"Joe": "Kore", "Jane": "Puck"}
     # Mutually exclusive — single-speaker voice_config must be unset here.
     assert sc.voice_config is None
+
+
+# ---------------------------------------------------------------------------
+# music/lyria
+# ---------------------------------------------------------------------------
+
+def test_music_lyria_clip_modalities(mock_client):
+    _, captured = mock_client
+    _import("music/lyria/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+
+    mods = [getattr(m, "value", m) for m in (cfg.response_modalities or [])]
+    assert "AUDIO" in mods and "TEXT" in mods
+    # Clip preview leaves response_mime_type as None (model default = MP3).
+    assert cfg.response_mime_type is None
+    # Music wants variance — temperature default 1.0 preserved.
+    assert cfg.temperature == 1.0
+
+
+def test_music_lyria_pro_sets_wav_mime(mock_client):
+    """Pro tier flips response_mime_type to audio/wav for lossless output."""
+    _, captured = mock_client
+    _import("music/lyria/python/ai_studio.py").main(model="lyria-3-pro-preview")
+    cfg = _generate_content_config(captured)
+    assert cfg.response_mime_type == "audio/wav"

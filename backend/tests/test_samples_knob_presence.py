@@ -270,3 +270,22 @@ def test_text_tool_call_tools_and_mode_auto(mock_client):
     assert cfg.tool_config is not None
     assert cfg.tool_config.function_calling_config is not None
     assert cfg.tool_config.function_calling_config.mode.value == "AUTO"
+
+
+# ---------------------------------------------------------------------------
+# text/tool-call-chat
+# ---------------------------------------------------------------------------
+
+def test_text_tool_call_chat_tools_on_chats_create(mock_client):
+    """Tools and tool_config live on chats.create — persist across send_message."""
+    _, captured = mock_client
+    _import("text/tool-call-chat/python/ai_studio.py").main()
+
+    create_calls = [(p, kw) for p, kw in captured.calls if p == "chats.create"]
+    assert len(create_calls) == 1
+    cfg = create_calls[0][1].get("config")
+    assert cfg is not None
+    assert cfg.tools is not None and len(cfg.tools) == 2
+    assert cfg.tool_config.function_calling_config.mode.value == "AUTO"
+    assert cfg.system_instruction is not None
+    assert "travel assistant" in cfg.system_instruction

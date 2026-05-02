@@ -341,3 +341,37 @@ def test_text_grounding_maps_tool_and_lat_lng_pinned(mock_client):
 
     # safety_settings stay default (None) — distinct from grounding-search.
     assert cfg.safety_settings is None
+
+
+# ---------------------------------------------------------------------------
+# text/context-cache
+# ---------------------------------------------------------------------------
+
+def test_text_context_cache_create_then_bind_then_delete(mock_client):
+    """The whole choreography: create → generate_content w/ cached_content → delete."""
+    _, captured = mock_client
+    _import("text/context-cache/python/ai_studio.py").main()
+
+    paths = [p for p, _ in captured.calls]
+    # caches.create must come first, then generate_content, then caches.delete.
+    assert paths.index("caches.create") < paths.index("models.generate_content")
+    assert paths.index("models.generate_content") < paths.index("caches.delete")
+
+    # generate_content must reference the cache by name in cached_content.
+    cfg = _generate_content_config(captured)
+    assert cfg.cached_content == "cachedContents/canned-id"
+
+
+def test_text_context_cache_create_config(mock_client):
+    """caches.create gets the four documented fields: name, system_instruction,
+    contents, ttl."""
+    _, captured = mock_client
+    _import("text/context-cache/python/ai_studio.py").main()
+    create_kwargs = next(kw for p, kw in captured.calls if p == "caches.create")
+    cfg = create_kwargs.get("config")
+    assert cfg is not None
+    assert cfg.display_name == "gemini-bible-demo-cache"
+    assert cfg.system_instruction is not None
+    assert "internal staff engineer" in cfg.system_instruction
+    assert cfg.contents is not None and len(cfg.contents) >= 1
+    assert cfg.ttl == "120s"

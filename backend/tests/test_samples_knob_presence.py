@@ -392,3 +392,22 @@ def test_embeddings_basic_config(mock_client):
     assert cfg.output_dimensionality == 768
     assert cfg.title is None
     assert cfg.auto_truncate is True
+
+
+# ---------------------------------------------------------------------------
+# image/nano-banana
+# ---------------------------------------------------------------------------
+
+def test_image_nano_banana_modalities_and_image_config(mock_client):
+    _, captured = mock_client
+    _import("image/nano-banana/python/ai_studio.py").main()
+    cfg = _generate_content_config(captured)
+
+    mods = [getattr(m, "value", m) for m in (cfg.response_modalities or [])]
+    assert "IMAGE" in mods
+
+    assert cfg.image_config is not None
+    assert cfg.image_config.aspect_ratio == "16:9"
+    pg = cfg.image_config.person_generation
+    assert getattr(pg, "value", pg) == "ALLOW_ADULT"
+    assert cfg.image_config.output_mime_type == "image/png"

@@ -14,6 +14,8 @@ import { create } from 'zustand'
 
 export type HunkOp = 'replace' | 'insert' | 'delete'
 
+export type Severity = 'blocking' | 'recommended' | 'informational'
+
 export type DiffHunk = {
   op: HunkOp
   before: string | null
@@ -21,6 +23,9 @@ export type DiffHunk = {
   rule_anchor: string
   rationale: string
   quote: string
+  rule_title: string
+  severity: Severity
+  source_url: string
 }
 
 export type CostLeg = {

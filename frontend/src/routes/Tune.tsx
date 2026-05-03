@@ -7,6 +7,7 @@
 
 import { useTune } from '../state/tune'
 import { TuneForm } from '../components/tune/TuneForm'
+import { DiffPanel } from '../components/tune/DiffPanel'
 
 export function Tune() {
   const status = useTune((s) => s.status)
@@ -45,14 +46,20 @@ export function Tune() {
         ) : null}
 
         {status === 'done' && result ? (
-          <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)] p-6">
-            <p className="font-mono text-[10px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.32em' }}>
-              raw result · DiffPanel + ABResultPanel land in the next commits
-            </p>
-            <pre className="mt-3 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--text-muted)]">
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          </div>
+          <>
+            <DiffPanel result={result} />
+            {/* ABResultPanel lands in the next commit */}
+            {result.ab ? (
+              <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)] p-6">
+                <p className="font-mono text-[10px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.32em' }}>
+                  A/B verdict · ABResultPanel lands in the next commit
+                </p>
+                <pre className="mt-3 max-h-[300px] overflow-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--text-muted)]">
+                  {JSON.stringify(result.ab, null, 2)}
+                </pre>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
     </section>

@@ -59,6 +59,18 @@ class DiffHunk(BaseModel):
         default="",
         description="Verbatim quote from the catalog rule (loader-stamped).",
     )
+    rule_title: str = Field(
+        default="",
+        description="Rule title — loader-stamped so the frontend doesn't need a second fetch.",
+    )
+    severity: str = Field(
+        default="recommended",
+        description="One of blocking|recommended|informational — loader-stamped.",
+    )
+    source_url: str = Field(
+        default="",
+        description="Source URL for the rule — loader-stamped, used for the diff hunk's citation link.",
+    )
 
 
 class DiffApplyError(ValueError):
@@ -415,6 +427,9 @@ def tune_prompt(
                 f"applicable rules were {rules_considered}"
             )
         hunk.quote = rule.quote
+        hunk.rule_title = rule.title
+        hunk.severity = rule.severity
+        hunk.source_url = rule.source_url
 
     # Apply deterministically. apply_hunks raises DiffApplyError on bad hunks
     # — let it propagate so /api/tune surfaces a clean 422.

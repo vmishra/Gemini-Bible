@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Route = 'home' | 'samples' | 'practices' | 'calculator'
+export type Route = 'home' | 'samples' | 'practices' | 'calculator' | 'tune'
 
 type State = {
   route: Route

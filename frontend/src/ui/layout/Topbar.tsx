@@ -46,6 +46,7 @@ export function Topbar() {
         <NavLink route="home" label="Home" />
         <NavLink route="practices" label="Practices" />
         <NavLink route="calculator" label="Calculator" />
+        <NavLink route="tune" label="Tune" />
         <NavLink route="samples" label="Samples" />
       </nav>
 

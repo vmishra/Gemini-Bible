@@ -9,6 +9,7 @@ import { Workspace } from './routes/Workspace'
 import { Home } from './routes/Home'
 import { Practices } from './routes/Practices'
 import { Calculator } from './routes/Calculator'
+import { Tune } from './routes/Tune'
 
 export function App() {
   const refreshAuth = useAuth((s) => s.refresh)
@@ -23,6 +24,7 @@ export function App() {
         {route === 'home' && <HomeRouteShell refresh={[refreshAuth, refreshSamples, refreshPricing]} />}
         {route === 'practices' && <PracticesRouteShell />}
         {route === 'calculator' && <CalculatorRouteShell refresh={[refreshPricing]} />}
+        {route === 'tune' && <TuneRouteShell />}
         {route === 'samples' && <SamplesRouteShell refresh={[refreshAuth, refreshSamples, refreshPricing]} />}
       </main>
     </div>
@@ -47,6 +49,10 @@ function CalculatorRouteShell({ refresh }: { refresh: Array<() => Promise<void>>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return <Calculator />
+}
+
+function TuneRouteShell() {
+  return <Tune />
 }
 
 function SamplesRouteShell({ refresh }: { refresh: Array<() => Promise<void>> }) {

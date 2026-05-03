@@ -8,6 +8,7 @@
 import { useTune } from '../state/tune'
 import { TuneForm } from '../components/tune/TuneForm'
 import { DiffPanel } from '../components/tune/DiffPanel'
+import { ABResultPanel } from '../components/tune/ABResultPanel'
 
 export function Tune() {
   const status = useTune((s) => s.status)
@@ -48,17 +49,7 @@ export function Tune() {
         {status === 'done' && result ? (
           <>
             <DiffPanel result={result} />
-            {/* ABResultPanel lands in the next commit */}
-            {result.ab ? (
-              <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)] p-6">
-                <p className="font-mono text-[10px] uppercase text-[var(--text-subtle)]" style={{ letterSpacing: '0.32em' }}>
-                  A/B verdict · ABResultPanel lands in the next commit
-                </p>
-                <pre className="mt-3 max-h-[300px] overflow-auto whitespace-pre-wrap font-mono text-[11px] text-[var(--text-muted)]">
-                  {JSON.stringify(result.ab, null, 2)}
-                </pre>
-              </div>
-            ) : null}
+            {result.ab ? <ABResultPanel ab={result.ab} costEstimate={result.cost_estimate} /> : null}
           </>
         ) : null}
       </div>

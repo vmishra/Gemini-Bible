@@ -426,3 +426,179 @@ def tune_prompt(
         hunks=tuner_resp.hunks,
         rules_considered=rules_considered,
     )
+
+
+# ---------------------------------------------------------------------------
+# A/B + judge pipeline
+# ---------------------------------------------------------------------------
+
+class RuleVerdict(BaseModel):
+    rule_anchor: str
+    verdict: Literal["helped", "hurt", "no_change", "unclear"]
+    reasoning: str
+    evidence_quote_original: str | None = None
+    evidence_quote_tuned: str | None = None
+
+
+class JudgeResponse(BaseModel):
+    """The structured-output schema we hand to the judge LLM."""
+    overall_winner: Literal["original", "tuned", "tie"]
+    overall_reasoning: str
+    per_rule: list[RuleVerdict]
+
+
+class ABResult(BaseModel):
+    original_output: str
+    tuned_output: str
+    overall_winner: Literal["original", "tuned", "tie"]
+    overall_reasoning: str
+    per_rule: list[RuleVerdict]
+
+
+JUDGE_SYSTEM_INSTRUCTION = """\
+You are a careful, evidence-driven judge comparing two model outputs that
+came from two slightly different prompts (an ORIGINAL and a TUNED version
+that applied a list of best-practice rules).
+
+You will receive:
+  - the ORIGINAL prompt and the TUNED prompt
+  - both model outputs (ORIGINAL_OUTPUT, TUNED_OUTPUT)
+  - the list of RULES that were applied in the tuning, each with anchor,
+    title, rule, and the rationale the tuner gave for applying it
+
+For EACH rule in the list, decide whether the change actually helped,
+hurt, made no observable difference, or is unclear. Be honest — "no
+change" and "unclear" are valid and expected verdicts. Your reasoning
+should cite specific spans from the two outputs as evidence.
+
+Then issue an overall verdict: did the tuned prompt produce a better
+final answer, a worse one, or roughly equal?
+
+Be terse. One paragraph per per-rule reasoning, one for overall. Cite
+verbatim spans from the outputs as evidence_quote_original and
+evidence_quote_tuned.
+"""
+
+
+class JudgeCallError(Exception):
+    """Raised when the judge's structured response is unusable."""
+
+
+def _build_judge_payload(
+    *,
+    original_prompt: str,
+    tuned_prompt: str,
+    original_output: str,
+    tuned_output: str,
+    hunks: list[DiffHunk],
+) -> str:
+    rules_view = [
+        {
+            "anchor": h.rule_anchor,
+            "rule_summary": h.rationale,
+            "before": h.before,
+            "after": h.after,
+        }
+        for h in hunks
+    ]
+    return (
+        "<original_prompt>\n"
+        f"{original_prompt}\n"
+        "</original_prompt>\n\n"
+        "<tuned_prompt>\n"
+        f"{tuned_prompt}\n"
+        "</tuned_prompt>\n\n"
+        "<original_output>\n"
+        f"{original_output}\n"
+        "</original_output>\n\n"
+        "<tuned_output>\n"
+        f"{tuned_output}\n"
+        "</tuned_output>\n\n"
+        "<applied_rules>\n"
+        f"{json.dumps(rules_view, indent=2)}\n"
+        "</applied_rules>"
+    )
+
+
+def run_ab_and_judge(
+    *,
+    original_prompt: str,
+    tuned_prompt: str,
+    hunks: list[DiffHunk],
+    target_model: str,
+    judge_model: str | None = None,
+    client=None,
+) -> ABResult:
+    """Run both prompts on the target model, then ask the judge to compare.
+
+    Three SDK calls in total:
+      1. generate_content(target_model, original_prompt)
+      2. generate_content(target_model, tuned_prompt)
+      3. generate_content(judge_model, payload-with-both-outputs)
+
+    The two target calls happen sequentially (not concurrently) for
+    simplicity; latency is dominated by the judge call anyway.
+    """
+    if client is None:
+        from google import genai
+        client = genai.Client()
+
+    from google.genai import types as genai_types
+
+    # ---- Two target runs ---------------------------------------------------
+    target_cfg = genai_types.GenerateContentConfig(
+        max_output_tokens=TARGET_MAX_OUTPUT,
+    )
+
+    original_resp = client.models.generate_content(
+        model=target_model,
+        contents=original_prompt,
+        config=target_cfg,
+    )
+    tuned_resp = client.models.generate_content(
+        model=target_model,
+        contents=tuned_prompt,
+        config=target_cfg,
+    )
+
+    original_output = getattr(original_resp, "text", "") or ""
+    tuned_output = getattr(tuned_resp, "text", "") or ""
+
+    # ---- Judge call --------------------------------------------------------
+    payload = _build_judge_payload(
+        original_prompt=original_prompt,
+        tuned_prompt=tuned_prompt,
+        original_output=original_output,
+        tuned_output=tuned_output,
+        hunks=hunks,
+    )
+    judge_cfg = genai_types.GenerateContentConfig(
+        system_instruction=JUDGE_SYSTEM_INSTRUCTION,
+        response_mime_type="application/json",
+        response_json_schema=JudgeResponse.model_json_schema(),
+        temperature=0.2,
+        max_output_tokens=JUDGE_MAX_OUTPUT,
+    )
+    judge_resp = client.models.generate_content(
+        model=judge_model or DEFAULT_JUDGE_MODEL,
+        contents=payload,
+        config=judge_cfg,
+    )
+
+    text = getattr(judge_resp, "text", None)
+    if not text:
+        raise JudgeCallError("judge returned empty response.text")
+
+    try:
+        parsed = json.loads(text)
+        judge_data = JudgeResponse.model_validate(parsed)
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise JudgeCallError(f"judge response is not valid JudgeResponse JSON: {exc}") from exc
+
+    return ABResult(
+        original_output=original_output,
+        tuned_output=tuned_output,
+        overall_winner=judge_data.overall_winner,
+        overall_reasoning=judge_data.overall_reasoning,
+        per_rule=judge_data.per_rule,
+    )

@@ -7,23 +7,41 @@
  * (keeps the page stateless across sessions).
  */
 
+import { useEffect, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
+
 import { useTune } from '../../state/tune'
 
 export function SessionSpendRibbon() {
   const total = useTune((s) => s.sessionSpendUsd)
   const history = useTune((s) => s.spendHistory)
+  const reduced = useReducedMotion()
+
+  // Microbounce when total changes (after the first non-zero value).
+  const [bounce, setBounce] = useState(0)
+  const prevTotal = useRef(total)
+  useEffect(() => {
+    if (total !== prevTotal.current && total > 0) {
+      setBounce((n) => n + 1)
+    }
+    prevTotal.current = total
+  }, [total])
 
   if (total === 0) return null
 
   return (
     <div className="group relative">
-      <div
+      <motion.div
+        key={bounce}
+        initial={reduced ? false : { scale: 1 }}
+        animate={reduced ? { scale: 1 } : { scale: [1, 1.06, 1] }}
+        transition={{ duration: reduced ? 0 : 0.35, ease: 'easeOut' }}
         className="rounded-full border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-1.5 font-mono text-[11px] text-[var(--text-muted)]"
         style={{ boxShadow: 'var(--shadow-1)' }}
       >
         <span className="text-[var(--text-subtle)]">session · </span>
         <span className="text-[var(--text)]">{fmtUsd(total)}</span>
-      </div>
+      </motion.div>
 
       {/* Hover reveal — last 5 tunes */}
       <div

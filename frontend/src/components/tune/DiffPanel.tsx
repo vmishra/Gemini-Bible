@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { ArrowUpRight, Check, ChevronDown, Copy } from 'lucide-react'
 
 import type { DiffHunk, Severity, TuneEndpointResponse } from '../../state/tune'
@@ -70,19 +71,28 @@ export function DiffPanel({ result }: { result: TuneEndpointResponse }) {
 
       <ul className="divide-y divide-[var(--border)]">
         {result.hunks.map((hunk, i) => (
-          <HunkRow key={`${hunk.rule_anchor}-${i}`} hunk={hunk} />
+          <HunkRow key={`${hunk.rule_anchor}-${i}`} hunk={hunk} index={i} />
         ))}
       </ul>
     </section>
   )
 }
 
-function HunkRow({ hunk }: { hunk: DiffHunk }) {
+function HunkRow({ hunk, index }: { hunk: DiffHunk; index: number }) {
+  const reduced = useReducedMotion()
   const [open, setOpen] = useState(false)
   const tone = SEVERITY_TONE[hunk.severity] ?? SEVERITY_TONE.recommended
 
   return (
-    <li>
+    <motion.li
+      initial={reduced ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: reduced ? 0 : 0.32,
+        delay: reduced ? 0 : index * 0.05,
+        ease: [0.2, 0.7, 0.2, 1],
+      }}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -111,7 +121,7 @@ function HunkRow({ hunk }: { hunk: DiffHunk }) {
       </button>
 
       {open ? <HunkBody hunk={hunk} /> : null}
-    </li>
+    </motion.li>
   )
 }
 

@@ -602,3 +602,41 @@ def run_ab_and_judge(
         overall_reasoning=judge_data.overall_reasoning,
         per_rule=judge_data.per_rule,
     )
+
+
+# ---------------------------------------------------------------------------
+# Endpoint shapes
+# ---------------------------------------------------------------------------
+
+# Hard ceiling per single tune. Override with the TUNE_MAX_USD env var.
+DEFAULT_TUNE_MAX_USD = 1.00
+
+
+class TuneRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    target_model: str
+    run_ab: bool = False
+    tuner_model: str | None = None
+    judge_model: str | None = None
+
+
+class TuneEndpointResponse(BaseModel):
+    """Wire shape for POST /api/tune."""
+    original: str
+    tuned: str
+    hunks: list[DiffHunk]
+    rules_considered: list[str]
+    cost_estimate: CostEstimate            # what was budgeted (pre-flight)
+    ab: ABResult | None = None             # populated only when run_ab=True
+
+
+def tune_max_usd_ceiling() -> float:
+    """Read the per-tune USD ceiling from $TUNE_MAX_USD; default 1.00."""
+    import os
+    raw = os.environ.get("TUNE_MAX_USD")
+    if raw is None:
+        return DEFAULT_TUNE_MAX_USD
+    try:
+        return float(raw)
+    except ValueError:
+        return DEFAULT_TUNE_MAX_USD

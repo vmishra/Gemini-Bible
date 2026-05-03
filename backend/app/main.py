@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from .auth import detect
 from .metrics import MetricsStore, _ASSET_NOTES, _PRICES, _USD_TO_INR
-from . import practices
+from . import practices, tune as tune_mod
 from .registry import load_all
 from .runner import RunRequest, run
 
@@ -146,6 +146,71 @@ def pricing() -> dict:
         "as_of": "2026-04-30",
         "source_url": "https://ai.google.dev/pricing",
     }
+
+
+@app.post("/api/tune")
+def tune_prompt_endpoint(body: tune_mod.TuneRequest) -> tune_mod.TuneEndpointResponse:
+    """Run the tuner pipeline (and optionally A/B + judge) on a prompt.
+
+    Pre-flight cost estimate is computed before any model call. If the
+    estimate exceeds $TUNE_MAX_USD (default $1.00), responds 413 with
+    the breakdown — gives the caller a clear "this would cost X, raise
+    the env if you want it" signal instead of a runaway charge.
+
+    Tuner-side errors (hallucinated rule anchors, malformed JSON,
+    overlapping diff hunks) surface as 422.
+    """
+    estimate = tune_mod.estimate_cost(
+        prompt=body.prompt,
+        target_model=body.target_model,
+        run_ab=body.run_ab,
+        tuner_model=body.tuner_model,
+        judge_model=body.judge_model,
+    )
+    ceiling = tune_mod.tune_max_usd_ceiling()
+    if estimate.total_usd > ceiling:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "error": "estimated cost exceeds ceiling",
+                "estimate_usd": estimate.total_usd,
+                "ceiling_usd": ceiling,
+                "raise_with_env": "TUNE_MAX_USD",
+                "legs": [leg.model_dump() for leg in estimate.legs],
+            },
+        )
+
+    try:
+        result = tune_mod.tune_prompt(
+            prompt=body.prompt,
+            target_model=body.target_model,
+            tuner_model=body.tuner_model,
+        )
+    except (tune_mod.TunerCallError, tune_mod.DiffApplyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    ab: tune_mod.ABResult | None = None
+    if body.run_ab and result.hunks:
+        # Skip AB if no hunks — nothing to judge.
+        try:
+            ab = tune_mod.run_ab_and_judge(
+                original_prompt=result.original,
+                tuned_prompt=result.tuned,
+                hunks=result.hunks,
+                target_model=body.target_model,
+                judge_model=body.judge_model,
+            )
+        except tune_mod.JudgeCallError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return tune_mod.TuneEndpointResponse(
+        original=result.original,
+        tuned=result.tuned,
+        hunks=result.hunks,
+        rules_considered=result.rules_considered,
+        cost_estimate=estimate,
+        ab=ab,
+    )
 
 
 @app.get("/api/practices")

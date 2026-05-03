@@ -9,6 +9,7 @@ import { useTune } from '../state/tune'
 import { TuneForm } from '../components/tune/TuneForm'
 import { DiffPanel } from '../components/tune/DiffPanel'
 import { ABResultPanel } from '../components/tune/ABResultPanel'
+import { SessionSpendRibbon } from '../components/tune/SessionSpendRibbon'
 
 export function Tune() {
   const status = useTune((s) => s.status)
@@ -16,8 +17,13 @@ export function Tune() {
   const error = useTune((s) => s.error)
 
   return (
-    <section className="flex flex-1 flex-col overflow-y-auto bg-[var(--surface)]">
-      <div className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-6 py-10">
+    <section className="relative flex flex-1 flex-col overflow-y-auto bg-[var(--surface)]">
+      {/* Session-spend pill — only visible after the first tune lands. */}
+      <div className="pointer-events-auto sticky top-3 z-20 flex justify-end px-6">
+        <SessionSpendRibbon />
+      </div>
+
+      <div className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-6 pb-10">
         <header className="flex flex-col gap-2">
           <span
             className="font-mono text-[10.5px] uppercase text-[var(--text-subtle)]"

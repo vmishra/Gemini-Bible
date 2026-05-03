@@ -217,3 +217,33 @@ def test_empty_prompt_returns_422(client_with_mock):
     })
     # Pydantic validation kicks in before we touch the model.
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# /api/tune/estimate — pre-flight cost only, no model calls
+# ---------------------------------------------------------------------------
+
+def test_estimate_endpoint_makes_no_model_calls(client_with_mock):
+    client, captured = client_with_mock
+    resp = client.post("/api/tune/estimate", json={
+        "prompt": "hello",
+        "target_model": "gemini-3-flash-preview",
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["run_ab"] is False
+    assert body["total_usd"] > 0
+    assert len(body["legs"]) == 1
+    # No SDK calls were made — estimator is pure offline.
+    assert all(p != "models.generate_content" for p, _ in captured.calls)
+
+
+def test_estimate_endpoint_with_run_ab_returns_four_legs(client_with_mock):
+    client, _ = client_with_mock
+    resp = client.post("/api/tune/estimate", json={
+        "prompt": "hello",
+        "target_model": "gemini-3-flash-preview",
+        "run_ab": True,
+    })
+    assert resp.status_code == 200
+    assert len(resp.json()["legs"]) == 4

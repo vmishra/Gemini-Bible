@@ -148,6 +148,22 @@ def pricing() -> dict:
     }
 
 
+@app.post("/api/tune/estimate")
+def tune_estimate_endpoint(body: tune_mod.TuneRequest) -> tune_mod.CostEstimate:
+    """Pre-flight cost estimate for a /api/tune request — no model calls.
+
+    Used by the frontend's debounced cost preview as the user types.
+    Same request body as /api/tune; runs only the heuristic estimator.
+    """
+    return tune_mod.estimate_cost(
+        prompt=body.prompt,
+        target_model=body.target_model,
+        run_ab=body.run_ab,
+        tuner_model=body.tuner_model,
+        judge_model=body.judge_model,
+    )
+
+
 @app.post("/api/tune")
 def tune_prompt_endpoint(body: tune_mod.TuneRequest) -> tune_mod.TuneEndpointResponse:
     """Run the tuner pipeline (and optionally A/B + judge) on a prompt.
